@@ -4,10 +4,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { getSocket } from "@/lib/socket";
 import RoleCard from "@/components/RoleCard";
-import PhaseTimer from "@/components/PhaseTimer";
 import NightActions from "@/components/NightActions";
 import VotingPanel from "@/components/VotingPanel";
 import GameLog from "@/components/GameLog";
+import RoomCodeBox from "@/components/ui/RoomCodeBox";
+import TimerPill from "@/components/ui/TimerPill";
+import CompactPhaseStepper from "@/components/ui/PhaseStepper";
+import Avatar from "@/components/ui/Avatar";
+import DevControls from "@/components/DevControls";
+import HostControls from "@/components/HostControls";
+import { GameOverBanner } from "@/components/ui/GameOverBanner";
+import { SystemToast } from "@/components/ui/SystemToast";
+import PhaseSummaryCard from "@/components/ui/PhaseSummaryCard";
 
 const ALLOW_BOTS = true;
 const DEV_CONTROLS = true;
@@ -33,6 +41,10 @@ export default function RoomPage() {
   const [myRole, setMyRole] = useState(null);
   const [roleInfo, setRoleInfo] = useState("");
   const [teammates, setTeammates] = useState([]);
+
+  // timing state
+  const [offsetMs, setOffsetMs] = useState(0); // serverNow - clientNow
+  const [totalMs, setTotalMs] = useState(0); // phase total duration
 
   // UI banners + summaries
   const [error, setError] = useState("");
@@ -63,6 +75,27 @@ export default function RoomPage() {
   // Dev role picker state
   const [devRole, setDevRole] = useState(""); // "fraudster" | "auditor" | "controller" | "accountant" | ""
   const [devRoleStatus, setDevRoleStatus] = useState(""); // feedback text
+
+  //assing avatars
+  function statusFor(p) {
+    // customize as you like
+    if (p.eliminated || p.isActive === false) {
+      return {
+        label: "Eliminated",
+        cls: "bg-role-fraudster/20 text-role-fraudster",
+      };
+    }
+    if (p.name?.startsWith("Bot-")) {
+      return {
+        label: "Bot",
+        cls: "bg-role-controller/20 text-role-controller",
+      };
+    }
+    return {
+      label: "Active",
+      cls: "bg-role-accountant/20 text-role-accountant",
+    };
+  }
 
   /* ------------------------ Socket lifecycle ------------------------ */
 
@@ -120,6 +153,14 @@ export default function RoomPage() {
             setPhase(res.room.currentPhase || "lobby");
             setLogs((prev) => mergeLogs(prev, res.room.logs || []));
             joinedRef.current = true;
+            // timing from server (if your backend sends it)
+            if (res.room.serverNow) {
+              setOffsetMs(res.room.serverNow - Date.now());
+            }
+            if (typeof res.room.totalMs === "number")
+              setTotalMs(res.room.totalMs);
+            if (typeof res.room.deadline === "number")
+              setDeadline(res.room.deadline);
           });
 
         /* ------- Handlers ------- */
@@ -130,12 +171,20 @@ export default function RoomPage() {
           setIsHost(getSocket().id === newHostId);
 
         // start + role
-        const onGameStarted = ({ currentPhase, players, logs: serverLogs }) => {
+        const onGameStarted = ({
+          currentPhase,
+          players,
+          logs,
+          totalMs,
+          serverNow,
+        }) => {
           setPhase(currentPhase || "night_review");
           if (Array.isArray(players)) setPlayers(players);
-          setLogs((prev) => mergeLogs(prev, serverLogs || []));
-          // reset fronts
+          setLogs((prev) => mergeLogs(prev, logs || []));
           setDeadline(null);
+          if (typeof totalMs === "number") setTotalMs(totalMs);
+          if (typeof serverNow === "number")
+            setOffsetMs(serverNow - Date.now());
           setNightSummary(null);
           setFraudTally(null);
           setFraudVotes(null);
@@ -144,6 +193,7 @@ export default function RoomPage() {
           setHasVotedDay(false);
           setGameOver(null);
           setDevRoleStatus(""); // clear dev picker feedback on game start
+          setHasVotedDay(false);
         };
 
         const onYourRole = ({ role, instructions, teammates = [] }) => {
@@ -153,17 +203,28 @@ export default function RoomPage() {
         };
 
         // phase changes (server includes roster; only set if provided)
-        const onPhaseChanged = ({ phase, deadline, players }) => {
-          setPhase(phase || "morning_meeting");
+        const onPhaseChanged = ({
+          phase,
+          deadline,
+          players,
+          totalMs,
+          serverNow,
+        }) => {
+          setPhase(phase);
           setDeadline(deadline || null);
+          if (phase === "morning_meeting") {
+            setHasVotedDay(false);
+          }
           if (Array.isArray(players)) setPlayers(players);
-          if (phase === "morning_meeting") setHasVotedDay(false);
           // clear per-phase banners
           setNightSummary(null);
           setFraudTally(null);
           setFraudVotes(null);
           if (phase === "night_review") setAuditMsg(""); // keep result into morning
           setDaySummary(null);
+          if (typeof totalMs === "number") setTotalMs(totalMs);
+          if (typeof serverNow === "number")
+            setOffsetMs(serverNow - Date.now());
         };
 
         // fraudster live updates
@@ -295,8 +356,8 @@ export default function RoomPage() {
 
   const castDayVote = (targetId) =>
     new Promise((resolve, reject) => {
-      const socket = getSocket();
-      socket
+      setError(null); // clear any previous error
+      getSocket()
         .timeout(6000)
         .emit("day-vote", { roomCode, targetId }, (err, res) => {
           if (err) {
@@ -307,11 +368,10 @@ export default function RoomPage() {
             setError(res?.error || "Vote failed.");
             return reject(new Error(res?.error || "Vote failed"));
           }
-          setHasVotedDay(true);
+          setHasVotedDay(true); // lock for the rest of this day
           resolve();
         });
     });
-
   // Debug: spawn/stop bots
   const [botCount, setBotCount] = useState(6);
   const spawnBots = () =>
@@ -407,195 +467,83 @@ export default function RoomPage() {
 
   return (
     <main className="min-h-screen p-6 space-y-6">
-      <header className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-xl font-semibold">Room: {roomCode || "…"}</h1>
-        <div className="flex items-center gap-2">
-          <div className="text-sm px-3 py-1 rounded border">Phase: {phase}</div>
-          {deadline && <PhaseTimer deadline={deadline} />}
+      <header className="flex flex-col gap-4 md:grid md:grid-cols-[1fr_auto_1fr] md:items-center">
+        {/* Left: Room code */}
+        <div className="md:justify-self-start">
+          <RoomCodeBox code={roomCode || ""} />
+        </div>
+
+        {/* Center: Stylish Timer */}
+        <div className="md:justify-self-center w-full flex justify-center">
+          <TimerPill
+            deadline={deadline ? deadline - offsetMs : null}
+            durationMs={totalMs}
+            label={
+              phase === "night_review"
+                ? "Night ends in"
+                : phase === "morning_meeting"
+                ? "Day ends in"
+                : "Time left"
+            }
+          />
+        </div>
+
+        {/* Right: Compact Stepper */}
+        <div className="md:justify-self-end">
+          <CompactPhaseStepper current={phase} />
         </div>
       </header>
 
+      {/* Toasts */}
       {error && (
-        <div className="p-3 rounded bg-red-50 text-red-700 border border-red-200">
-          {error}
-        </div>
+        <SystemToast
+          type="error"
+          message={error}
+          onClose={() => setError(null)}
+        />
       )}
       {auditMsg && (
-        <div className="p-3 rounded bg-blue-50 text-blue-700 border border-blue-200">
-          {auditMsg}
-        </div>
+        <SystemToast
+          type="audit"
+          message={auditMsg}
+          onClose={() => setAuditMsg(null)}
+        />
       )}
+
+      {/* Phase Summary */}
       {nightSummary && (
-        <div className="p-3 rounded bg-amber-50 text-amber-800 border border-amber-200">
-          Night:{" "}
-          {nightSummary.eliminatedName
-            ? `${nightSummary.eliminatedName} was eliminated.`
-            : "No one was eliminated."}
-          {nightSummary.protectedName
-            ? ` (Protected: ${nightSummary.protectedName})`
-            : ""}
-        </div>
+        <PhaseSummaryCard
+          phase="night_review"
+          eliminatedName={nightSummary.eliminatedName}
+          protectedName={nightSummary.protectedName}
+          ephemeral={true} // auto-hide after 6s
+          onDismiss={() => setNightSummary(null)}
+          showAvatars={false} // flip to true if you like
+        />
       )}
+
       {daySummary && (
-        <div className="p-3 rounded bg-violet-50 text-violet-800 border border-violet-200">
-          Day:{" "}
-          {daySummary.eliminatedName
-            ? `${daySummary.eliminatedName} was eliminated`
-            : "No elimination (tie or no votes)."}
-          {daySummary.eliminatedRole
-            ? ` — Role: ${String(daySummary.eliminatedRole).toUpperCase()}`
-            : ""}
-        </div>
+        <PhaseSummaryCard
+          phase="morning_meeting"
+          eliminatedName={daySummary.eliminatedName}
+          eliminatedRole={daySummary.eliminatedRole}
+          protectedName={daySummary.protectedName}
+          ephemeral={true}
+          onDismiss={() => setDaySummary(null)}
+        />
       )}
+
+      {/* Game Over */}
       {gameOver && (
-        <div className="p-3 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
-          Game Over — Winner: <b>{gameOver.winner.toUpperCase()}</b> (
-          {gameOver.reason})
-        </div>
+        <GameOverBanner winner={gameOver.winner} reason={gameOver.reason} />
       )}
 
       <section className="grid md:grid-cols-3 gap-4">
         {/* Left: Players + Log */}
-        <div className="md:col-span-2 border rounded p-4">
-          <h2 className="font-medium mb-2">Players</h2>
-          <ul className="space-y-2">
-            {players.map((p) => (
-              <li
-                key={p.id}
-                className="flex items-center justify-between border rounded p-2"
-              >
-                <span>
-                  {p.name} {p.isHost ? "👑" : ""}
-                </span>
-                <span
-                  className={`text-xs ${
-                    p.isActive ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {p.isActive ? "Active" : "Eliminated"}
-                </span>
-              </li>
-            ))}
-            {!players.length && (
-              <li className="text-sm text-gray-500">
-                Waiting for players to join…
-              </li>
-            )}
-          </ul>
-
-          <div className="mt-4">
-            <h2 className="font-medium mb-2">Game Log</h2>
-            <GameLog logs={logs} />
-          </div>
-        </div>
-
-        {/* Right: Sidebar */}
-        <aside className="border rounded p-4 space-y-3">
-          <div className="text-sm">
-            You: <b>{name}</b> {isHost ? "👑 (Host)" : ""}
-          </div>
-
-          {/* Dev controls: Pick my role (host-only, lobby-only) */}
-          {DEV_CONTROLS && isHost && (
-            <div className="border rounded p-3 space-y-2 bg-slate-50">
-              <div className="text-sm font-medium">Dev: Pick My Role</div>
-              <select
-                className="w-full border rounded p-2"
-                value={devRole}
-                onChange={(e) => setDevRole(e.target.value)}
-                disabled={phase !== "lobby"}
-              >
-                <option value="">-- Select a role --</option>
-                <option value="fraudster">Fraudster</option>
-                <option value="auditor">Auditor</option>
-                <option value="controller">Controller</option>
-                <option value="accountant">Accountant</option>
-              </select>
-              <button
-                onClick={applyDevRole}
-                disabled={!devRole || phase !== "lobby"}
-                className={`w-full rounded p-2 ${
-                  !devRole || phase !== "lobby"
-                    ? "bg-gray-300"
-                    : "bg-indigo-600 text-white"
-                }`}
-              >
-                Apply Role (Host)
-              </button>
-              {devRoleStatus && (
-                <div className="text-xs text-gray-600">{devRoleStatus}</div>
-              )}
-              <p className="text-[11px] text-gray-500">
-                Dev-only. Applies to host in the lobby. Roles stay balanced via
-                swap.
-              </p>
-            </div>
-          )}
-
-          {/* Bot controls (dev) */}
-          {isHost && ALLOW_BOTS && (
-            <div className="border rounded p-3 space-y-2">
-              <div className="text-sm font-medium">Debug: Spawn Bots</div>
-              <div className="text-xs text-gray-500">
-                env:{String(ALLOW_BOTS)} | phase:{phase} | isHost:
-                {String(isHost)}
-              </div>
-              <input
-                type="number"
-                min={1}
-                max={16}
-                value={botCount}
-                onChange={(e) =>
-                  setBotCount(
-                    Math.max(1, Math.min(16, Number(e.target.value) || 1))
-                  )
-                }
-                className="w-full border rounded p-2"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={spawnBots}
-                  disabled={phase !== "lobby"}
-                  className={`flex-1 rounded p-2 border ${
-                    phase !== "lobby" ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  Spawn
-                </button>
-                <button
-                  onClick={despawnBots}
-                  className="flex-1 rounded p-2 border"
-                >
-                  Despawn
-                </button>
-              </div>
-              <p className="text-xs text-gray-500">
-                Bots can only join in the lobby. Start the audit after spawning.
-              </p>
-            </div>
-          )}
-
-          {/* Host controls */}
-          {isHost && phase === "lobby" && (
-            <button
-              onClick={startGame}
-              className="w-full rounded p-2 bg-black text-white"
-            >
-              Start Audit
-            </button>
-          )}
-          {isHost && phase === "morning_meeting" && !gameOver && (
-            <button
-              onClick={beginNight}
-              className="w-full rounded p-2 bg-black text-white"
-            >
-              Begin Night
-            </button>
-          )}
-
+        <div className="md:col-span-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 shadow-sm">
           {/* Role card */}
           {myRole && (
-            <div className="pt-2 border-t">
+            <div className="pt-2">
               <RoleCard
                 role={myRole}
                 instructions={roleInfo}
@@ -603,6 +551,40 @@ export default function RoomPage() {
               />
             </div>
           )}
+          <div className="mt-6">
+            <h2 className="font-semibold mb-3 text-white/90 tracking-wide">
+              Game Log
+            </h2>
+            <GameLog logs={logs} />
+          </div>
+        </div>
+
+        {/* Right: Sidebar */}
+        <aside className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 shadow-sm">
+          {/* Dev controls: Pick my role (host-only, lobby-only) */}
+          <DevControls
+            DEV_CONTROLS={DEV_CONTROLS}
+            isHost={isHost}
+            phase={phase}
+            devRole={devRole}
+            setDevRole={setDevRole}
+            applyDevRole={applyDevRole}
+            devRoleStatus={devRoleStatus}
+            ALLOW_BOTS={ALLOW_BOTS}
+            botCount={botCount}
+            setBotCount={setBotCount}
+            spawnBots={spawnBots}
+            despawnBots={despawnBots}
+          />
+
+          {/* Host controls */}
+          <HostControls
+            isHost={isHost}
+            phase={phase}
+            gameOver={gameOver}
+            startGame={startGame}
+            beginNight={beginNight}
+          />
 
           {/* Night actions */}
           {phase === "night_review" && me?.isActive && (
@@ -618,12 +600,59 @@ export default function RoomPage() {
           {/* Day voting */}
           {phase === "morning_meeting" && me?.isActive && !gameOver && (
             <VotingPanel
-              me={{ ...me, role: myRole }}
+              me={me}
               players={players}
               onVote={castDayVote}
-              disabled={hasVotedDay}
+              disabled={!!gameOver} // parent guard
+              phase={phase} // lets panel reset when day starts
+              hasVotedDay={hasVotedDay} // locks after a successful vote
             />
           )}
+          <h2 className="font-semibold mb-4 text-white/90 tracking-wide">
+            Players
+          </h2>
+          <ul className="space-y-2">
+            {players.map((p) => {
+              const s = statusFor(p);
+              return (
+                <li
+                  key={p.id || p.name}
+                  className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar
+                      seed={p.id || p.name}
+                      label={p.name}
+                      host={!!p.isHost}
+                      size="md"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">
+                        {p.name}{" "}
+                        {p.isHost && (
+                          <span className="text-accent-gold align-middle">
+                            👑
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${s.cls}`}
+                  >
+                    {s.label}
+                  </span>
+                </li>
+              );
+            })}
+
+            {!players.length && (
+              <li className="text-sm text-white/60 px-1">
+                Waiting for players…
+              </li>
+            )}
+          </ul>
         </aside>
       </section>
     </main>

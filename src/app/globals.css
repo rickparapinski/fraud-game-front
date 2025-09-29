@@ -1,26 +1,88 @@
 @import "tailwindcss";
 
+/* Base tokens you already had */
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* NEW — ink palette + accents */
+  --ink-900: #0f172a; /* top bg */
+  --ink-800: #1e293b; /* bottom bg/cards */
+  --ink-700: #334155; /* borders */
+  --accent-gold: #facc15;
+  --accent-mint: #34d399;
+
+  /* NEW — role colors */
+  --role-accountant: #3b82f6;
+  --role-controller: #10b981;
+  --role-auditor: #8b5cf6;
+  --role-fraudster: #ef4444;
+
+  /* NEW — radii + shadow */
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --shadow-card: 0 6px 18px rgba(0, 0, 0, 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #0a0a0a; /* you can keep this */
     --foreground: #ededed;
   }
 }
 
+/* Map tokens into Tailwind theme names */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Optional fonts (keep Geist if you use it) */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
+  /* NEW — colors exposed to Tailwind classes */
+  --color-ink-900: var(--ink-900);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+
+  --color-role-accountant: var(--role-accountant);
+  --color-role-controller: var(--role-controller);
+  --color-role-auditor: var(--role-auditor);
+  --color-role-fraudster: var(--role-fraudster);
+
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-mint: var(--accent-mint);
+
+  /* Radii & shadow */
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --shadow-card: var(--shadow-card);
+}
+
+/* Use Tailwind for fonts/colors instead of hardcoding Arial */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-background text-foreground font-sans antialiased;
+}
+
+/* Optional subtle dotted texture you can add on cards */
+.card-grid-bg {
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px
+  );
+  background-size: 12px 12px;
+}
+
+/* Handy app-wide gradient background class */
+.app-gradient {
+  background-image: linear-gradient(to bottom, var(--ink-900), var(--ink-800));
+}
+
+/* A reusable “card” helper (you can also do this via pure Tailwind classes inline) */
+.card {
+  background-color: color-mix(in oklab, var(--ink-800) 95%, transparent);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-card);
 }

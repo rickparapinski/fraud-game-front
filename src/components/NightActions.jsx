@@ -1,5 +1,30 @@
 "use client";
 import { useMemo, useState } from "react";
+import { Skull, Search, ShieldCheck } from "lucide-react"; // icons
+
+const ROLE_STYLES = {
+  fraudster: {
+    label: "Eliminate",
+    ring: "ring-role-fraudster/30",
+    glow: "shadow-[0_0_25px_-5px_rgba(239,68,68,0.35)]",
+    chip: "bg-role-fraudster/20 text-role-fraudster",
+    Icon: Skull,
+  },
+  auditor: {
+    label: "Audit",
+    ring: "ring-role-auditor/30",
+    glow: "shadow-[0_0_25px_-5px_rgba(139,92,246,0.35)]",
+    chip: "bg-role-auditor/20 text-role-auditor",
+    Icon: Search,
+  },
+  controller: {
+    label: "Protect",
+    ring: "ring-role-controller/30",
+    glow: "shadow-[0_0_25px_-5px_rgba(16,185,129,0.35)]",
+    chip: "bg-role-controller/20 text-role-controller",
+    Icon: ShieldCheck,
+  },
+};
 
 export default function NightActions({ me, players, onAct, fraudTally }) {
   const [targetId, setTargetId] = useState("");
@@ -11,14 +36,8 @@ export default function NightActions({ me, players, onAct, fraudTally }) {
     [players, me.id]
   );
 
-  const label =
-    me.role === "fraudster"
-      ? "Choose a target to eliminate"
-      : me.role === "auditor"
-      ? "Choose a player to audit"
-      : me.role === "controller"
-      ? "Choose a player to protect"
-      : "";
+  const style = ROLE_STYLES[me.role] || {};
+  const { Icon } = style;
 
   const actionType =
     me.role === "fraudster"
@@ -28,6 +47,15 @@ export default function NightActions({ me, players, onAct, fraudTally }) {
       : me.role === "controller"
       ? "protect_employee"
       : null;
+
+  const label =
+    me.role === "fraudster"
+      ? "Choose a target to eliminate"
+      : me.role === "auditor"
+      ? "Choose a player to audit"
+      : me.role === "controller"
+      ? "Choose a player to protect"
+      : "";
 
   const submit = async () => {
     if (!actionType || !targetId || pending) return;
@@ -40,14 +68,31 @@ export default function NightActions({ me, players, onAct, fraudTally }) {
       setPending(false);
     }
   };
+
   return (
-    <div className="border rounded p-3 space-y-3">
-      <div className="font-medium">Night Actions</div>
+    <section
+      className={[
+        "relative overflow-hidden rounded-2xl border border-ink-700 bg-ink-800/95",
+        "p-5 text-white ring-1",
+        style.ring,
+        style.glow,
+      ].join(" ")}
+    >
       {actionType ? (
         <>
-          <label className="text-sm">{label}</label>
+          {/* Header with role icon */}
+          <div className="flex items-center gap-3 mb-3">
+            <div
+              className={`grid place-items-center w-9 h-9 rounded-xl ${style.chip}`}
+            >
+              {Icon ? <Icon className="w-5 h-5" /> : <span>🌙</span>}
+            </div>
+            <h3 className="font-semibold text-lg">Night Actions</h3>
+          </div>
+
+          <label className="block text-sm mb-2">{label}</label>
           <select
-            className="w-full border rounded p-2"
+            className="w-full rounded-xl bg-ink-900/50 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-gold"
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
           >
@@ -58,23 +103,31 @@ export default function NightActions({ me, players, onAct, fraudTally }) {
               </option>
             ))}
           </select>
+
           <button
             onClick={submit}
-            className="w-full rounded p-2 bg-black text-white"
+            disabled={pending || !targetId}
+            className={`mt-4 w-full rounded-xl py-2.5 font-medium transition-colors ${
+              pending || !targetId
+                ? "bg-white/10 text-white/50 cursor-not-allowed"
+                : "bg-accent-gold text-ink-900 hover:bg-yellow-400"
+            }`}
           >
-            Submit Action
+            {pending ? "Submitting…" : "Submit Action"}
           </button>
+
           {me?.role === "auditor" && (
-            <p className="text-xs text-gray-500">
-              Your audit result appears at morning.
+            <p className="mt-3 text-xs text-white/60">
+              Your audit result appears in the morning.
             </p>
           )}
+
           {me.role === "fraudster" && fraudTally && (
-            <div className="text-xs text-gray-600">
-              <div className="mt-2 font-medium">
+            <div className="mt-4 text-xs text-white/70">
+              <div className="font-medium mb-1">
                 Fraudster vote tally (private):
               </div>
-              <ul className="list-disc list-inside">
+              <ul className="list-disc list-inside space-y-0.5">
                 {Object.entries(fraudTally).map(([tid, count]) => {
                   const player = players.find((p) => p.id === tid);
                   return (
@@ -86,12 +139,18 @@ export default function NightActions({ me, players, onAct, fraudTally }) {
               </ul>
             </div>
           )}
+
+          {submittedFor && (
+            <p className="mt-3 text-xs text-accent-gold">
+              ✅ You submitted your action for {submittedFor}.
+            </p>
+          )}
         </>
       ) : (
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-white/60">
           Accountants rest during night.
         </div>
       )}
-    </div>
+    </section>
   );
 }
