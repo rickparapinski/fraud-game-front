@@ -422,7 +422,7 @@ export default function RoomPage() {
               ))}
             </div>
             {/* Right: Clock */}
-            <AudioController phase={room?.phase} />
+            {roomData && <AudioController phase={roomData.phase} />}
             <div className="w-20 px-2 font-mono text-xl text-center text-red-500 bg-black border-2 border-gray-600 border-b-white border-r-white">
               {timeLeft}
             </div>
