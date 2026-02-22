@@ -9,12 +9,6 @@ export default function Monitor({ children, className = "" }) {
       style={{ aspectRatio: "4/3", minHeight: "600px" }}
     >
       {/* BRANDING BADGE */}
-      <div className="absolute z-20 flex items-center gap-2 bottom-2 right-8 opacity-60">
-        <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_5px_#00ff00] animate-pulse"></div>
-        <span className="hidden text-sm font-bold tracking-widest uppercase text-neutral-600 font-retro sm:block">
-          SyncMaster 2000
-        </span>
-      </div>
 
       {/* THE GLASS SCREEN */}
       <div className="relative flex-1 w-full h-full overflow-hidden screen-glass">

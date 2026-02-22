@@ -38,7 +38,7 @@ export default function GameLog({ logs = [] }) {
         return `Night ${num}: ${eliminatedName} TERMINATED.`;
       }
       if (protectedName) {
-        return `Night ${num}: ATTACK PREVENTED (Shielded).`;
+        return `Night ${num}: FRAUD PREVENTED (PWC PROTECTION).`;
       }
       return `Night ${num}: NO ACTIVITY DETECTED.`;
     }

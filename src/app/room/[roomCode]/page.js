@@ -422,11 +422,14 @@ export default function RoomPage() {
               ))}
             </div>
             {/* Right: Clock */}
-            {typeof roomData !== "undefined" && roomData !== null && (
-              <AudioController phase={roomData.phase} />
-            )}
-            <div className="w-20 px-2 font-mono text-xl text-center text-red-500 bg-black border-2 border-gray-600 border-b-white border-r-white">
-              {timeLeft}
+            <div className="flex items-center h-full gap-2">
+              {/* The New Hardware Module */}
+              <AudioController phase={game.phase} />
+
+              {/* The Existing Clock */}
+              <div className="w-20 px-2 font-mono text-xl text-center text-red-500 bg-black border-2 border-gray-600 border-b-white border-r-white">
+                {timeLeft}
+              </div>
             </div>
           </div>
 
@@ -535,14 +538,6 @@ export default function RoomPage() {
                       <div className="border border-gray-400 p-2 bg-[#e0e0d1]">
                         <div className="font-bold text-[10px] uppercase mb-2 text-gray-600 border-b border-gray-400">
                           Action Required
-                        </div>
-                        <div className="mb-2 font-mono text-[10px] text-gray-700">
-                          DBG phase=<b>{String(game.phase)}</b> | me.id=
-                          <b>{String(me?.id)}</b> | socketId=
-                          <b>{String(game.socketId)}</b> | active=
-                          <b>{String(me?.isActive)}</b> | players=
-                          <b>{game.players.length}</b> | myRole=
-                          <b>{String(game.myRole)}</b>
                         </div>
                         {/* Retro Wrapper for Inner Components */}
                         <div className="retro-form-wrapper">
