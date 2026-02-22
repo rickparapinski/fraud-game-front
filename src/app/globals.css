@@ -1,88 +1,187 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap");
 @import "tailwindcss";
 
-/* Base tokens you already had */
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-
-  /* NEW — ink palette + accents */
-  --ink-900: #0f172a; /* top bg */
-  --ink-800: #1e293b; /* bottom bg/cards */
-  --ink-700: #334155; /* borders */
-  --accent-gold: #facc15;
-  --accent-mint: #34d399;
-
-  /* NEW — role colors */
-  --role-accountant: #3b82f6;
-  --role-controller: #10b981;
-  --role-auditor: #8b5cf6;
-  --role-fraudster: #ef4444;
-
-  /* NEW — radii + shadow */
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --shadow-card: 0 6px 18px rgba(0, 0, 0, 0.3);
+/* --- CONFIGURATION --- */
+@theme inline {
+  --font-pixel: "Press Start 2P", cursive;
+  --font-retro: "VT323", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a; /* you can keep this */
-    --foreground: #ededed;
+:root {
+  /* Retro Palette */
+  --bg-wall: #222222; /* The dark room behind the monitor */
+  --monitor-case: #d1d1c4; /* Beige Plastic */
+
+  /* Day Mode Colors (Windows 95-ish) */
+  --win-teal: #008080;
+  --win-gray: #c0c0c0;
+  --win-blue: #000080;
+  --win-text: #000000;
+
+  /* Night Mode Colors (Terminal) */
+  --term-bg: #0a0a0a;
+  --term-green: #33ff00;
+  --term-amber: #ffb000;
+  --term-red: #ff3333;
+}
+
+body {
+  background-color: var(--bg-wall);
+  color: white;
+  font-family: var(--font-retro);
+  margin: 0;
+  overflow: hidden; /* Prevent scrollbars on the "wall" */
+}
+
+/* --- CRT ANIMATIONS --- */
+@keyframes flicker {
+  0% {
+    opacity: 0.97;
+  }
+  5% {
+    opacity: 0.95;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  15% {
+    opacity: 0.95;
+  }
+  20% {
+    opacity: 0.99;
+  }
+  50% {
+    opacity: 0.95;
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0.97;
   }
 }
 
-/* Map tokens into Tailwind theme names */
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-
-  /* Optional fonts (keep Geist if you use it) */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
-    monospace;
-
-  /* NEW — colors exposed to Tailwind classes */
-  --color-ink-900: var(--ink-900);
-  --color-ink-800: var(--ink-800);
-  --color-ink-700: var(--ink-700);
-
-  --color-role-accountant: var(--role-accountant);
-  --color-role-controller: var(--role-controller);
-  --color-role-auditor: var(--role-auditor);
-  --color-role-fraudster: var(--role-fraudster);
-
-  --color-accent-gold: var(--accent-gold);
-  --color-accent-mint: var(--accent-mint);
-
-  /* Radii & shadow */
-  --radius-xl: var(--radius-xl);
-  --radius-2xl: var(--radius-2xl);
-  --shadow-card: var(--shadow-card);
+@keyframes turn-on {
+  0% {
+    transform: scale(1, 0.002);
+    opacity: 0;
+    filter: brightness(30);
+  }
+  30% {
+    transform: scale(1, 0.002);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1, 0.01);
+  }
+  100% {
+    transform: scale(1, 1);
+    filter: brightness(1);
+  }
 }
 
-/* Use Tailwind for fonts/colors instead of hardcoding Arial */
-body {
-  @apply bg-background text-foreground font-sans antialiased;
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }
 
-/* Optional subtle dotted texture you can add on cards */
-.card-grid-bg {
-  background-image: radial-gradient(
-    rgba(255, 255, 255, 0.04) 1px,
-    transparent 1px
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* --- MONITOR COMPONENT CLASSES --- */
+
+/* The Beige Plastic Case */
+.monitor-casing {
+  background-color: var(--monitor-case);
+  box-shadow: inset 10px 10px 30px rgba(0, 0, 0, 0.1),
+    15px 15px 30px rgba(0, 0, 0, 0.5),
+    inset -5px -5px 10px rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+}
+
+/* The Glowing Glass Screen */
+.screen-glass {
+  background-color: #111;
+  border-radius: 20px;
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.8);
+  animation: turn-on 0.3s ease-out forwards;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Vignette Glow */
+.crt-glow {
+  background: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0) 60%,
+    rgba(0, 0, 0, 0.4) 90%,
+    rgba(0, 0, 0, 0.8) 100%
   );
-  background-size: 12px 12px;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 50;
 }
 
-/* Handy app-wide gradient background class */
-.app-gradient {
-  background-image: linear-gradient(to bottom, var(--ink-900), var(--ink-800));
+/* --- UI COMPONENT CLASSES --- */
+
+.retro-window {
+  background: var(--win-gray);
+  box-shadow: 2px 2px 0px #000;
+  border: 2px solid #fff;
+  border-right-color: #404040;
+  border-bottom-color: #404040;
 }
 
-/* A reusable “card” helper (you can also do this via pure Tailwind classes inline) */
-.card {
-  background-color: color-mix(in oklab, var(--ink-800) 95%, transparent);
-  border: 1px solid var(--ink-700);
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-card);
+.retro-title-bar {
+  background: var(--win-blue);
+  color: white;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.retro-input {
+  font-family: var(--font-retro);
+  background: #fff;
+  border: 2px solid #404040;
+  border-right-color: #fff;
+  border-bottom-color: #fff;
+  box-shadow: inset 2px 2px 0px rgba(0, 0, 0, 0.5);
+  color: black;
+  font-size: 1.25rem;
+}
+.retro-input:focus {
+  outline: none;
+  background: #fffff0;
+}
+
+.retro-btn {
+  background: var(--win-gray);
+  border-top: 2px solid #fff;
+  border-left: 2px solid #fff;
+  border-right: 2px solid #000;
+  border-bottom: 2px solid #000;
+  color: black;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.retro-btn:active {
+  border-top: 2px solid #000;
+  border-left: 2px solid #000;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: translateY(2px);
+}
+.retro-btn:disabled {
+  color: #888;
+  border-color: #888;
+  cursor: not-allowed;
 }

@@ -1,65 +1,57 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Skull, Search, ShieldCheck } from "lucide-react"; // icons
-
-const ROLE_STYLES = {
-  fraudster: {
-    label: "Eliminate",
-    ring: "ring-role-fraudster/30",
-    glow: "shadow-[0_0_25px_-5px_rgba(239,68,68,0.35)]",
-    chip: "bg-role-fraudster/20 text-role-fraudster",
-    Icon: Skull,
-  },
-  auditor: {
-    label: "Audit",
-    ring: "ring-role-auditor/30",
-    glow: "shadow-[0_0_25px_-5px_rgba(139,92,246,0.35)]",
-    chip: "bg-role-auditor/20 text-role-auditor",
-    Icon: Search,
-  },
-  controller: {
-    label: "Protect",
-    ring: "ring-role-controller/30",
-    glow: "shadow-[0_0_25px_-5px_rgba(16,185,129,0.35)]",
-    chip: "bg-role-controller/20 text-role-controller",
-    Icon: ShieldCheck,
-  },
-};
+import { Skull, Search, ShieldCheck } from "lucide-react";
 
 export default function NightActions({ me, players, onAct, fraudTally }) {
   const [targetId, setTargetId] = useState("");
-  const [submittedFor, setSubmittedFor] = useState(null);
   const [pending, setPending] = useState(false);
+  const [submittedFor, setSubmittedFor] = useState(null);
 
   const aliveOthers = useMemo(
     () => players.filter((p) => p.isActive && p.id !== me.id),
     [players, me.id]
   );
 
-  const style = ROLE_STYLES[me.role] || {};
-  const { Icon } = style;
+  const roleConfig = {
+    fraudster: {
+      label: "ELIMINATION_TARGET",
+      Icon: Skull,
+      btnText: "CONFIRM TARGET",
+    },
+    auditor: {
+      label: "AUDIT_SUBJECT",
+      Icon: Search,
+      btnText: "REQUEST RECORDS",
+    },
+    controller: {
+      label: "ASSET_PROTECTION",
+      Icon: ShieldCheck,
+      btnText: "ASSIGN GUARD",
+    },
+  };
 
-  const actionType =
-    me.role === "fraudster"
-      ? "fraudster_target"
-      : me.role === "auditor"
-      ? "audit_check"
-      : me.role === "controller"
-      ? "protect_employee"
-      : null;
+  const config = roleConfig[me.role];
+  const Icon = config?.Icon;
 
-  const label =
-    me.role === "fraudster"
-      ? "Choose a target to eliminate"
-      : me.role === "auditor"
-      ? "Choose a player to audit"
-      : me.role === "controller"
-      ? "Choose a player to protect"
-      : "";
+  if (!config)
+    return (
+      <div className="font-mono text-xs text-gray-500">
+        NO ACTIONS AVAILABLE FOR ROLE: {me.role}
+      </div>
+    );
 
   const submit = async () => {
-    if (!actionType || !targetId || pending) return;
+    if (!targetId || pending) return;
     setPending(true);
+
+    // Map role to action type string expected by backend
+    const actionType =
+      me.role === "fraudster"
+        ? "fraudster_target"
+        : me.role === "auditor"
+        ? "audit_check"
+        : "protect_employee";
+
     try {
       await onAct(actionType, targetId);
       const p = players.find((x) => x.id === targetId);
@@ -70,87 +62,82 @@ export default function NightActions({ me, players, onAct, fraudTally }) {
   };
 
   return (
-    <section
-      className={[
-        "relative overflow-hidden rounded-2xl border border-ink-700 bg-ink-800/95",
-        "p-5 text-white ring-1",
-        style.ring,
-        style.glow,
-      ].join(" ")}
-    >
-      {actionType ? (
-        <>
-          {/* Header with role icon */}
-          <div className="flex items-center gap-3 mb-3">
-            <div
-              className={`grid place-items-center w-9 h-9 rounded-xl ${style.chip}`}
-            >
-              {Icon ? <Icon className="w-5 h-5" /> : <span>🌙</span>}
-            </div>
-            <h3 className="font-semibold text-lg">Night Actions</h3>
-          </div>
+    <div className="font-mono text-sm">
+      {/* HEADER */}
+      <div className="flex items-center gap-2 pb-1 mb-3 border-b border-gray-400">
+        {Icon && <Icon className="w-4 h-4 text-black" />}
+        <span className="font-bold text-black uppercase">{config.label}</span>
+      </div>
 
-          <label className="block text-sm mb-2">{label}</label>
+      {/* FORM */}
+      <div className="space-y-3">
+        <div>
+          <label className="block text-[10px] uppercase font-bold text-gray-600 mb-1">
+            Select Employee:
+          </label>
           <select
-            className="w-full rounded-xl bg-ink-900/50 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-gold"
+            className="w-full p-1 text-lg text-black bg-white border-2 border-gray-600 font-retro focus:outline-none focus:bg-yellow-50"
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
+            disabled={pending || !!submittedFor}
           >
-            <option value="">-- Select player --</option>
+            <option value="">-- SELECT --</option>
             {aliveOthers.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
           </select>
-
-          <button
-            onClick={submit}
-            disabled={pending || !targetId}
-            className={`mt-4 w-full rounded-xl py-2.5 font-medium transition-colors ${
-              pending || !targetId
-                ? "bg-white/10 text-white/50 cursor-not-allowed"
-                : "bg-accent-gold text-ink-900 hover:bg-yellow-400"
-            }`}
-          >
-            {pending ? "Submitting…" : "Submit Action"}
-          </button>
-
-          {me?.role === "auditor" && (
-            <p className="mt-3 text-xs text-white/60">
-              Your audit result appears in the morning.
-            </p>
-          )}
-
-          {me.role === "fraudster" && fraudTally && (
-            <div className="mt-4 text-xs text-white/70">
-              <div className="font-medium mb-1">
-                Fraudster vote tally (private):
-              </div>
-              <ul className="list-disc list-inside space-y-0.5">
-                {Object.entries(fraudTally).map(([tid, count]) => {
-                  const player = players.find((p) => p.id === tid);
-                  return (
-                    <li key={tid}>
-                      {player?.name || tid}: {count}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-
-          {submittedFor && (
-            <p className="mt-3 text-xs text-accent-gold">
-              ✅ You submitted your action for {submittedFor}.
-            </p>
-          )}
-        </>
-      ) : (
-        <div className="text-sm text-white/60">
-          Accountants rest during night.
         </div>
-      )}
-    </section>
+
+        <button
+          onClick={submit}
+          disabled={pending || !targetId || !!submittedFor}
+          className="w-full py-2 text-xs font-bold bg-gray-300 border-2 border-black retro-btn hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {pending
+            ? "PROCESSING..."
+            : submittedFor
+            ? "ACTION FILED"
+            : config.btnText}
+        </button>
+      </div>
+
+      {/* FEEDBACK MESSAGES */}
+      <div className="pt-2 mt-3 border-t border-gray-400 border-dashed">
+        {/* Auditor Note */}
+        {me.role === "auditor" && (
+          <p className="text-[10px] text-gray-600 italic">
+            * Report will be generated at 09:00 AM (Morning Phase).
+          </p>
+        )}
+
+        {/* Fraudster Tally */}
+        {me.role === "fraudster" && fraudTally && (
+          <div className="p-2 mt-2 bg-gray-200 border border-gray-400">
+            <div className="font-bold text-[10px] text-red-800 mb-1 uppercase">
+              Team Consensus:
+            </div>
+            <ul className="list-square list-inside text-[10px] text-black">
+              {Object.entries(fraudTally).map(([tid, count]) => {
+                const p = players.find((x) => x.id === tid);
+                return (
+                  <li key={tid}>
+                    {p?.name || tid}: {count} votes
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* Success Stamp */}
+        {submittedFor && (
+          <div className="inline-block px-2 py-1 mt-2 text-xs font-bold text-green-700 transform border-2 border-green-700 -rotate-2 opacity-80">
+            [✓] FILED: {submittedFor}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
