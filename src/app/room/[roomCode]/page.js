@@ -13,6 +13,7 @@ import HostControls from "@/components/HostControls";
 import RetroGameOver from "@/components/ui/RetroGameOver";
 import RetroToast from "@/components/ui/RetroToast";
 import RetroPhaseSummary from "@/components/ui/RetroPhaseSummary";
+import AudioController from "@/components/AudioController";
 
 const ALLOW_BOTS = true;
 const DEV_CONTROLS = true;
@@ -421,6 +422,7 @@ export default function RoomPage() {
               ))}
             </div>
             {/* Right: Clock */}
+            <AudioController phase={room?.phase} />
             <div className="w-20 px-2 font-mono text-xl text-center text-red-500 bg-black border-2 border-gray-600 border-b-white border-r-white">
               {timeLeft}
             </div>
