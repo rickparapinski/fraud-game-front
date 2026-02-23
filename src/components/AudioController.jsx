@@ -14,7 +14,6 @@ export default function AudioController({ phase }) {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
-        audioRef.current.loop = true;
       }
     };
   }, []);

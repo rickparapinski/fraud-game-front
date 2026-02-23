@@ -28,7 +28,11 @@ export default function VotingPanel({
     [players, me?.id],
   );
 
-  const isLocked = pending || disabled || hasVotedDay || phase !== "day";
+  // ✅ CHANGE 1: We no longer lock if 'hasVotedDay' or 'votedFor' is true.
+  // We only lock if pending, globally disabled, or wrong phase.
+  const isLocked = pending || disabled || phase !== "day";
+
+  // You can submit if you have a target AND (you haven't voted yet OR you're changing your vote)
   const canSubmit = !!targetId && !isLocked && aliveOthers.length > 0;
 
   const submit = async () => {
@@ -67,7 +71,7 @@ export default function VotingPanel({
               className="w-full p-1 text-lg text-black bg-white border-2 border-gray-600 font-retro focus:outline-none focus:bg-red-50"
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
-              disabled={isLocked || !!votedFor}
+              disabled={isLocked}
             >
               <option value="">-- SELECT --</option>
               {aliveOthers.map((p) => (
@@ -85,8 +89,8 @@ export default function VotingPanel({
           >
             {pending
               ? "PROCESSING..."
-              : votedFor
-                ? "REQUEST FILED"
+              : votedFor || hasVotedDay
+                ? "UPDATE VOTE" // ✅ CHANGE 2: Text reflects "Change"
                 : "SUBMIT TERMINATION"}
           </button>
         </div>
@@ -99,8 +103,9 @@ export default function VotingPanel({
             TERMINATION PENDING: {votedFor}
           </div>
         ) : hasVotedDay ? (
+          // Use this if we know they voted but don't have the name locally (e.g. page refresh)
           <div className="text-xs italic text-center text-gray-500">
-            (You have already submitted a vote today)
+            (Vote Filed - Select new target to change)
           </div>
         ) : null}
       </div>
