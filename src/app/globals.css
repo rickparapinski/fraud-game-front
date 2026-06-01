@@ -33,6 +33,12 @@ body {
   overflow: hidden; /* Prevent scrollbars on the "wall" */
 }
 
+/* --- CITY BACKGROUND PARALLAX --- */
+@keyframes city-parallax {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
 /* --- CRT ANIMATIONS --- */
 @keyframes flicker {
   0% {

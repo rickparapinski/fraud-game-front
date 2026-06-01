@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { getSocket } from "@/lib/socket";
+import { useGameLogic } from "@/hooks/useGameLogic";
 
 // UI Components
 import Monitor from "@/components/Monitor";
@@ -14,282 +14,10 @@ import RetroGameOver from "@/components/ui/RetroGameOver";
 import RetroToast from "@/components/ui/RetroToast";
 import RetroPhaseSummary from "@/components/ui/RetroPhaseSummary";
 import AudioController from "@/components/AudioController";
+import CityBackground from "@/components/CityBackground";
 
-const ALLOW_BOTS = true;
-const DEV_CONTROLS = true;
-const SESSION_KEY = "acct-game:sessionId";
-const ROOM_KEY = "acct-game:roomCode";
-
-/* ---THEME CONFIG --- */
-const THEMES = {
-  day: {
-    desktop: "bg-[#008080]",
-    windowBody: "bg-[#d1d1c4]",
-    titleBar: "bg-blue-900",
-    textMain: "text-black",
-    textDim: "text-gray-600",
-    border: "border-gray-400",
-    button: "bg-gray-200",
-  },
-  night: {
-    desktop: "bg-[#050505]", // Very dark
-    windowBody: "bg-[#1a1a1a]", // Dark terminal
-    titleBar: "bg-[#500000]", // Dark Red
-    textMain: "text-[#33ff00]", // Matrix Green
-    textDim: "text-[#1a8000]",
-    border: "border-[#333]",
-    button: "bg-[#333] text-white border-gray-600",
-  },
-};
-
-/* --- Session Helpers --- */
-function saveSession(sessionId, roomCode) {
-  try {
-    if (sessionId) localStorage.setItem(SESSION_KEY, sessionId);
-    if (roomCode) localStorage.setItem(ROOM_KEY, roomCode);
-  } catch {}
-}
-
-function loadSession() {
-  try {
-    return {
-      sessionId: localStorage.getItem(SESSION_KEY) || "",
-      roomCode: localStorage.getItem(ROOM_KEY) || "",
-    };
-  } catch {
-    return { sessionId: "", roomCode: "" };
-  }
-}
-
-/* ==================================================================================
-   HOOK: useGameLogic
-   ================================================================================== */
-function useGameLogic(roomCode, name) {
-  const [players, setPlayers] = useState([]);
-  const [isHost, setIsHost] = useState(false);
-  const [phase, setPhase] = useState("lobby");
-  const [deadline, setDeadline] = useState(null);
-  const [socketId, setSocketId] = useState("");
-  const [myRole, setMyRole] = useState(null);
-  const [roleInfo, setRoleInfo] = useState("");
-  const [teammates, setTeammates] = useState([]);
-  const [offsetMs, setOffsetMs] = useState(0);
-  const [totalMs, setTotalMs] = useState(0);
-  const [error, setError] = useState("");
-  const [auditMsg, setAuditMsg] = useState("");
-  const [nightSummary, setNightSummary] = useState(null);
-  const [daySummary, setDaySummary] = useState(null);
-  const [gameOver, setGameOver] = useState(null);
-  const [fraudTally, setFraudTally] = useState(null);
-  const [fraudVotes, setFraudVotes] = useState(null);
-  const [logs, setLogs] = useState([]);
-  const [hasVotedDay, setHasVotedDay] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const joinedRef = useRef(false);
-  const [dayVotingStatus, setDayVotingStatus] = useState([]);
-
-  const mergeLogs = (prev, incoming) => {
-    const map = new Map();
-    for (const e of prev || []) if (e?.id) map.set(e.id, e);
-    for (const e of incoming || [])
-      if (e?.id && !map.has(e.id)) map.set(e.id, e);
-    return Array.from(map.values()).sort((a, b) => (a.ts || 0) - (b.ts || 0));
-  };
-
-  // --- Socket Setup (With Resume Logic) ---
-  useEffect(() => {
-    if ((!roomCode && !loadSession().roomCode) || joinedRef.current) return;
-
-    // ✅ lock immediately to prevent StrictMode double-run from emitting twice
-    joinedRef.current = true;
-
-    let socket; // will be assigned after connect
-    let handlers = null; // will be assigned after listeners are created
-
-    const waitForSocket = () =>
-      new Promise((resolve, reject) => {
-        const s = getSocket();
-        if (s.connected) return resolve(s);
-        const onConnect = () => {
-          s.off("connect", onConnect);
-          resolve(s);
-        };
-        s.once("connect", onConnect);
-        setTimeout(() => reject(new Error("Socket timeout")), 5000);
-      });
-
-    (async () => {
-      try {
-        socket = await waitForSocket();
-        setSocketId(socket.id);
-        setConnected(true);
-
-        // --- Join / Resume (sets initial isHost + roster) ---
-        const prior = loadSession();
-        let res = null;
-
-        // 1) Try resume first (if we have a session for this room)
-        if (prior.sessionId && prior.roomCode === roomCode) {
-          try {
-            res = await socketEmit("resume-player", {
-              roomCode,
-              sessionId: prior.sessionId,
-              name,
-            });
-          } catch {
-            res = null;
-          }
-        }
-
-        // 2) Fallback to join-room
-        if (!res) {
-          res = await socketEmit("join-room", {
-            roomCode,
-            name,
-            sessionId: prior.sessionId || undefined,
-          });
-        }
-
-        // 3) Persist session so refresh works
-        if (res?.player?.sessionId) saveSession(res.player.sessionId, roomCode);
-
-        // ✅ THIS IS THE KEY: initialize host state from server response
-        setIsHost(!!res?.player?.isHost);
-
-        // Optional: also initialize basic room state immediately
-        if (res?.room?.players) setPlayers(res.room.players);
-        if (res?.room?.currentPhase) setPhase(res.room.currentPhase);
-        if (res?.room?.logs) setLogs((prev) => mergeLogs(prev, res.room.logs));
-
-        // --- Event Listeners ---
-        handlers = {
-          "player-joined": ({ players }) => setPlayers(players || []),
-          "host-changed": ({ newHostId }) => setIsHost(socket.id === newHostId),
-          "game-started": (data) => {
-            console.log("[socket] game-started", data);
-            setPhase(data.currentPhase || "night");
-            setPlayers(data.players || []);
-            setLogs((prev) => mergeLogs(prev, data.logs));
-            setDeadline(null);
-            setTotalMs(data.totalMs || 0);
-            setOffsetMs((data.serverNow || Date.now()) - Date.now());
-            setNightSummary(null);
-            setFraudTally(null);
-            setFraudVotes(null);
-            setDaySummary(null);
-            setHasVotedDay(false);
-            setGameOver(null);
-          },
-          "your-role": ({ role, instructions, teammates }) => {
-            console.log("YOUR ROLE EVENT", { role, instructions, teammates });
-            setMyRole(role);
-            setRoleInfo(instructions);
-            setTeammates(teammates || []);
-          },
-          "phase-changed": (data) => {
-            console.log("[socket] phase-changed", data);
-            setPhase(data.phase);
-            if (data.phase !== "day") setDayVotingStatus([]);
-            setDeadline(data.deadline || null);
-            if (data.phase === "day") setHasVotedDay(false);
-            if (data.players) setPlayers(data.players);
-            setNightSummary(null);
-            setFraudTally(null);
-            setFraudVotes(null);
-            setDaySummary(null);
-          },
-          "fraud-vote-update": ({ tally, votes }) => {
-            setFraudTally(tally);
-            setFraudVotes(votes);
-          },
-          "night-results": (data) => setNightSummary(data),
-          "audit-result": ({ isFraudster, targetName }) => {
-            setAuditMsg(
-              `${targetName} is ${isFraudster ? "" : "NOT "}a fraudster.`,
-            );
-          },
-          "day-results": (data) => setDaySummary(data),
-          "log-entry": (entry) => setLogs((prev) => mergeLogs(prev, [entry])),
-          "game-over": (data) => setGameOver(data),
-          "day-voting-status": ({ status }) => {
-            setDayVotingStatus(status || []);
-          },
-        };
-
-        Object.entries(handlers).forEach(([evt, fn]) => socket.on(evt, fn));
-      } catch (e) {
-        setError("Connection failed.");
-      }
-    })();
-
-    // ✅ cleanup belongs here, and must not reference undefined variables
-    return () => {
-      if (socket && handlers) {
-        Object.entries(handlers).forEach(([evt, fn]) => socket.off(evt, fn));
-      }
-    };
-  }, [roomCode, name]);
-  // --- Socket Disconnect Handler ---
-  const socketEmit = (event, data) =>
-    new Promise((resolve, reject) => {
-      getSocket()
-        .timeout(5000)
-        .emit(event, data, (err, res) => {
-          if (err) {
-            setError("Action timed out.");
-            reject(new Error("Action timed out."));
-          } else if (!res?.ok) {
-            const msg = res?.error || "Action failed";
-            setError(typeof msg === "string" ? msg : JSON.stringify(msg));
-            reject(new Error(msg));
-          } else {
-            resolve(res);
-          }
-        });
-    });
-
-  return {
-    players,
-    isHost,
-    phase,
-    deadline,
-    connected,
-    socketId,
-    myRole,
-    roleInfo,
-    teammates,
-    offsetMs,
-    totalMs,
-    logs,
-    dayVotingStatus,
-    error,
-    setError,
-    auditMsg,
-    setAuditMsg,
-    nightSummary,
-    setNightSummary,
-    daySummary,
-    setDaySummary,
-    gameOver,
-    fraudTally,
-    fraudVotes,
-    hasVotedDay,
-    actions: {
-      startGame: () => socketEmit("start-game", { roomCode }),
-      beginNight: () => socketEmit("begin-night", { roomCode }),
-      submitNightAction: (type, targetId) =>
-        socketEmit("night-action", { roomCode, type, targetId }),
-      castDayVote: async (targetId) => {
-        await socketEmit("day-vote", { roomCode, targetId });
-        setHasVotedDay(true);
-      },
-      spawnBots: (count) => socketEmit("debug-spawn-bots", { roomCode, count }),
-      despawnBots: () => socketEmit("debug-despawn-bots", { roomCode }),
-      setDevRole: (role) =>
-        socketEmit("debug-set-host-role", { roomCode, role }),
-    },
-  };
-}
+const ALLOW_BOTS = process.env.NEXT_PUBLIC_ALLOW_BOTS === "true";
+const DEV_CONTROLS = process.env.NEXT_PUBLIC_ALLOW_BOTS === "true";
 
 /* ==================================================================================
    COMPONENT: RoomPage (Visuals)
@@ -310,7 +38,7 @@ export default function RoomPage() {
   const [devMode, setDevMode] = useState(false);
   const [botCount, setBotCount] = useState(6);
   const [devRole, setDevRole] = useState("");
-  const [copied, setCopied] = useState(false); // New state for copy feedback
+  const [copied, setCopied] = useState(false);
 
   // -- Derived --
   const me = useMemo(() => {
@@ -374,16 +102,20 @@ export default function RoomPage() {
   };
 
   return (
-    <div className="flex items-center justify-center w-full h-screen p-2 bg-neutral-900 md:p-4">
+    <div className="relative z-0 flex items-center justify-center w-full h-screen p-2 md:p-4 overflow-hidden">
+      {/* City backdrop — scrolls behind the monitor */}
+      <CityBackground phase={game.phase} />
+
       <Monitor>
-        <div className="relative w-full h-full bg-[var(--win-teal)] flex flex-col overflow-hidden font-retro">
+        <div className="relative w-full h-full flex flex-col overflow-hidden font-retro bg-[var(--win-teal)]">
           {/* === GAME OVER OVERLAY (Inside Monitor) === */}
           {game.gameOver && (
             <RetroGameOver
               winner={game.gameOver.winner}
               reason={game.gameOver.reason}
-              players={game.gameOver.players || game.players} // Fallback to game.players if gameOver payload missing it
+              players={game.gameOver.players || game.players}
               onRestart={actions.startGame}
+              isHost={game.isHost}
             />
           )}
 
@@ -423,10 +155,7 @@ export default function RoomPage() {
             </div>
             {/* Right: Clock */}
             <div className="flex items-center h-full gap-2">
-              {/* The New Hardware Module */}
               <AudioController phase={game.phase} />
-
-              {/* The Existing Clock */}
               <div className="w-20 px-2 font-mono text-xl text-center text-red-500 bg-black border-2 border-gray-600 border-b-white border-r-white">
                 {timeLeft}
               </div>
@@ -437,7 +166,6 @@ export default function RoomPage() {
           <div className="relative flex flex-col flex-1 gap-4 p-2 overflow-hidden md:flex-row md:p-4">
             {/* --- BANNERS (Overlay) --- */}
             <div className="absolute z-50 flex flex-col items-center w-full max-w-md gap-2 px-4 transform -translate-x-1/2 pointer-events-none top-4 left-1/2">
-              {/* Pointer events auto so buttons work */}
               <div className="w-full pointer-events-auto">
                 {game.error && (
                   <RetroToast
@@ -491,7 +219,6 @@ export default function RoomPage() {
                     {/* 1. Role "Paper Form" */}
                     {game.myRole && (
                       <div className="bg-white border border-gray-400 p-3 shadow-md mb-4 relative transform rotate-[0.5deg]">
-                        {/* Punched holes effect */}
                         <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-[#d1d1c4]"></div>
                         <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#d1d1c4]"></div>
 
@@ -533,13 +260,12 @@ export default function RoomPage() {
                       </div>
                     )}
 
-                    {/* 2. Action Area (Wrapped to remove 'modern card' feel) */}
+                    {/* 2. Action Area */}
                     <div className="p-1 bg-gray-200 border-2 border-gray-500">
                       <div className="border border-gray-400 p-2 bg-[#e0e0d1]">
                         <div className="font-bold text-[10px] uppercase mb-2 text-gray-600 border-b border-gray-400">
                           Action Required
                         </div>
-                        {/* Retro Wrapper for Inner Components */}
                         <div className="retro-form-wrapper">
                           {game.phase === "night" && me?.isActive && (
                             <NightActions
