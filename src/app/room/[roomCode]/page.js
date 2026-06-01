@@ -178,6 +178,7 @@ export default function RoomPage() {
                   <RetroToast
                     type="audit"
                     message={game.auditMsg}
+                    duration={12000}
                     onClose={() => game.setAuditMsg("")}
                   />
                 )}
@@ -377,16 +378,6 @@ export default function RoomPage() {
                             {!p.isActive ? "TERMINATED" : "ACTIVE"}
                           </div>
                         </div>
-                        {game.phase === "day" && p.isActive && (
-                          <span
-                            className="ml-auto text-xs"
-                            title={
-                              votingMap.get(p.id) ? "Voted" : "Waiting for vote"
-                            }
-                          >
-                            {votingMap.get(p.id) ? "🗳️" : "⏳"}
-                          </span>
-                        )}
                         {/* Audit badge — only visible to the auditor */}
                         {game.myRole === "auditor" && p.sessionId !== game.mySessionId && (() => {
                           const entry = game.auditHistory[p.sessionId];
@@ -417,6 +408,14 @@ export default function RoomPage() {
                             </span>
                           );
                         })()}
+                        {game.phase === "day" && p.isActive && (
+                          <span
+                            className="text-xs"
+                            title={votingMap.get(p.id) ? "Voted" : "Waiting for vote"}
+                          >
+                            {votingMap.get(p.id) ? "🗳️" : "⏳"}
+                          </span>
+                        )}
                         {p.isHost && <span title="Host">👑</span>}
                       </div>
                     ))}

@@ -61,19 +61,15 @@ export default function GameLog({ logs = [] }) {
 
   return (
     <div className="bg-black p-2 md:p-4 h-full font-mono text-sm shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] flex flex-col min-h-0">
-      {/* Static Header to simulate terminal history */}
-      <div className="flex-shrink-0 mb-4 text-green-700 opacity-50 select-none">
-        Microsoft(R) Windows 95
-        <br />
-        (C)Copyright Microsoft Corp 1981-1996
-        <br />
-        <br />
-        C:\SYSTEM\LOGS\&gt; tail -f security.log --watch
-      </div>
-
-      {/* Scrollable Log Area */}
+      {/* Scrollable Log Area — header is inside so it scrolls off as entries pile up */}
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
         <ul className="space-y-1 tracking-wider font-retro">
+          <li className="mb-4 text-green-700 opacity-50 select-none leading-relaxed">
+            Microsoft(R) Windows 95<br />
+            (C)Copyright Microsoft Corp 1981-1996<br />
+            <br />
+            C:\SYSTEM\LOGS\&gt; tail -f security.log --watch
+          </li>
           {logs.map((log) => {
             const message = formatLog(log);
             if (!message) return null;

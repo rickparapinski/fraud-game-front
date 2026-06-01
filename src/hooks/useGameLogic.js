@@ -164,7 +164,9 @@ export function useGameLogic(roomCode, name) {
           "night-results": (data) => setNightSummary(data),
           "audit-result": ({ isFraudster, targetName, targetSessionId }) => {
             setAuditMsg(
-              `AUDIT REPORT: ${targetName} is ${isFraudster ? "⚠ a FRAUDSTER." : "✓ NOT a fraudster."}`,
+              isFraudster
+                ? `⚠ ${targetName} is a FRAUDSTER. Use this info well.`
+                : `${targetName} is NOT a fraudster.`,
             );
             if (targetSessionId) {
               setAuditHistory((prev) => ({

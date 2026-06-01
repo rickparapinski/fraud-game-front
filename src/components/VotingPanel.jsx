@@ -28,11 +28,8 @@ export default function VotingPanel({
     [players, me?.id],
   );
 
-  // ✅ CHANGE 1: We no longer lock if 'hasVotedDay' or 'votedFor' is true.
-  // We only lock if pending, globally disabled, or wrong phase.
-  const isLocked = pending || disabled || phase !== "day";
-
-  // You can submit if you have a target AND (you haven't voted yet OR you're changing your vote)
+  const hasVoted = hasVotedDay || !!votedFor;
+  const isLocked = pending || disabled || phase !== "day" || hasVoted;
   const canSubmit = !!targetId && !isLocked && aliveOthers.length > 0;
 
   const submit = async () => {
@@ -87,11 +84,7 @@ export default function VotingPanel({
             disabled={!canSubmit}
             className="w-full py-2 text-xs font-bold text-red-900 bg-red-100 border-2 border-black retro-btn hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
           >
-            {pending
-              ? "PROCESSING..."
-              : votedFor || hasVotedDay
-                ? "UPDATE VOTE" // ✅ CHANGE 2: Text reflects "Change"
-                : "SUBMIT TERMINATION"}
+            {pending ? "PROCESSING..." : hasVoted ? "VOTE FILED" : "SUBMIT TERMINATION"}
           </button>
         </div>
       )}
