@@ -185,7 +185,7 @@ function FraudVoteBoard({ me, players, fraudVotes }) {
 }
 
 // --- MAIN COMPONENT ---
-export default function NightActions({ me, players, onAct, fraudTally, fraudVotes }) {
+export default function NightActions({ me, players, onAct, fraudTally, fraudVotes, auditHistory, protectHistory }) {
   const [targetId, setTargetId] = useState("");
   const [pending, setPending] = useState(false);
   const [submittedFor, setSubmittedFor] = useState(null);
@@ -274,11 +274,15 @@ export default function NightActions({ me, players, onAct, fraudTally, fraudVote
             disabled={isLocked}
           >
             <option value="">-- SELECT --</option>
-            {aliveOthers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            {aliveOthers.map((p) => {
+              const audited = me.role === "auditor" && auditHistory?.[p.sessionId];
+              const protected_ = me.role === "controller" && protectHistory?.[p.sessionId];
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.name}{audited ? " [audited]" : ""}{protected_ ? ` [guarded ×${protected_.count}]` : ""}
+                </option>
+              );
+            })}
           </select>
         </div>
 

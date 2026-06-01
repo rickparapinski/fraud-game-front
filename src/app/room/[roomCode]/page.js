@@ -274,6 +274,8 @@ export default function RoomPage() {
                               onAct={actions.submitNightAction}
                               fraudTally={game.fraudTally}
                               fraudVotes={game.fraudVotes}
+                              auditHistory={game.auditHistory}
+                              protectHistory={game.protectHistory}
                             />
                           )}
                           {game.phase === "day" && (
@@ -385,6 +387,36 @@ export default function RoomPage() {
                             {votingMap.get(p.id) ? "🗳️" : "⏳"}
                           </span>
                         )}
+                        {/* Audit badge — only visible to the auditor */}
+                        {game.myRole === "auditor" && p.sessionId !== game.mySessionId && (() => {
+                          const entry = game.auditHistory[p.sessionId];
+                          if (!entry) return null;
+                          return (
+                            <span
+                              className={`ml-auto text-[9px] font-bold px-1 py-px border font-pixel ${
+                                entry.isFraudster
+                                  ? "text-red-700 bg-red-100 border-red-500"
+                                  : "text-green-700 bg-green-100 border-green-500"
+                              }`}
+                              title={`Audited: ${entry.isFraudster ? "FRAUDSTER" : "CLEAN"}`}
+                            >
+                              {entry.isFraudster ? "FRAUD" : "CLEAN"}
+                            </span>
+                          );
+                        })()}
+                        {/* Guard badge — only visible to the controller */}
+                        {game.myRole === "controller" && p.sessionId !== game.mySessionId && (() => {
+                          const entry = game.protectHistory[p.sessionId];
+                          if (!entry) return null;
+                          return (
+                            <span
+                              className="ml-auto text-[9px] font-bold px-1 py-px border font-pixel text-blue-700 bg-blue-100 border-blue-500"
+                              title={`Protected ${entry.count}x`}
+                            >
+                              {`GUARDED${entry.count > 1 ? ` ×${entry.count}` : ""}`}
+                            </span>
+                          );
+                        })()}
                         {p.isHost && <span title="Host">👑</span>}
                       </div>
                     ))}

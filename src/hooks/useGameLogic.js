@@ -36,6 +36,8 @@ export function useGameLogic(roomCode, name) {
   const [totalMs, setTotalMs] = useState(0);
   const [error, setError] = useState("");
   const [auditMsg, setAuditMsg] = useState("");
+  const [auditHistory, setAuditHistory] = useState({}); // { [sessionId]: { name, isFraudster } }
+  const [protectHistory, setProtectHistory] = useState({}); // { [sessionId]: { name, count } }
   const [nightSummary, setNightSummary] = useState(null);
   const [daySummary, setDaySummary] = useState(null);
   const [gameOver, setGameOver] = useState(null);
@@ -140,6 +142,8 @@ export function useGameLogic(roomCode, name) {
             setMyRole(role);
             setRoleInfo(instructions);
             setTeammates(teammates || []);
+            setAuditHistory({});
+            setProtectHistory({});
           },
           "phase-changed": (data) => {
             console.log("[socket] phase-changed", data);
@@ -158,10 +162,33 @@ export function useGameLogic(roomCode, name) {
             setFraudVotes(votes);
           },
           "night-results": (data) => setNightSummary(data),
-          "audit-result": ({ isFraudster, targetName }) => {
+          "audit-result": ({ isFraudster, targetName, targetSessionId }) => {
             setAuditMsg(
-              `${targetName} is ${isFraudster ? "" : "NOT "}a fraudster.`,
+              `AUDIT REPORT: ${targetName} is ${isFraudster ? "⚠ a FRAUDSTER." : "✓ NOT a fraudster."}`,
             );
+            if (targetSessionId) {
+              setAuditHistory((prev) => ({
+                ...prev,
+                [targetSessionId]: { name: targetName, isFraudster },
+              }));
+            }
+          },
+          "audit-missed": () => {
+            setAuditMsg("NO REPORT FILED — time expired before audit was submitted.");
+          },
+          "protect-result": ({ targetSessionId, targetName }) => {
+            if (targetSessionId) {
+              setProtectHistory((prev) => ({
+                ...prev,
+                [targetSessionId]: {
+                  name: targetName,
+                  count: (prev[targetSessionId]?.count || 0) + 1,
+                },
+              }));
+            }
+          },
+          "protect-missed": () => {
+            setAuditMsg("NO GUARD ASSIGNED — time expired before protection was submitted.");
           },
           "day-results": (data) => setDaySummary(data),
           "log-entry": (entry) => setLogs((prev) => mergeLogs(prev, [entry])),
@@ -221,6 +248,8 @@ export function useGameLogic(roomCode, name) {
     setError,
     auditMsg,
     setAuditMsg,
+    auditHistory,
+    protectHistory,
     nightSummary,
     setNightSummary,
     daySummary,
