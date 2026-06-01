@@ -1,63 +1,61 @@
 "use client";
 import { useMemo, useState, useEffect } from "react";
 import { Skull, Search, ShieldCheck, Check, X } from "lucide-react";
+import { ACTION_TYPES, ROLES } from "@/lib/constants";
 
 // --- SUB-COMPONENT: The Accountant's Ledger (Mini-Game) ---
 function AccountantLedger({ onAct }) {
   const [problem, setProblem] = useState(null);
   const [score, setScore] = useState(0);
-  const [flash, setFlash] = useState(""); // 'green', 'red', or ''
+  const [flash, setFlash] = useState("");
+  const [penalty, setPenalty] = useState(false);
 
-  // 1. Generate a new Invoice Problem
   const generateProblem = () => {
-    // Random numbers between 10 and 99
-    const a = Math.floor(Math.random() * 90) + 10;
-    const b = Math.floor(Math.random() * 90) + 10;
-    const correctSum = a + b;
+    const a = Math.floor(Math.random() * 51) + 15; // 15–65
+    const b = Math.floor(Math.random() * 51) + 15; // 15–65
+    const c = Math.floor(Math.random() * 26) + 5;  // 5–30 discount
+    const correctTotal = a + b - c;
 
-    // 50% chance to be correct, 50% chance to be wrong (by +/- 10)
     const isCorrect = Math.random() > 0.5;
-    const displaySum = isCorrect
-      ? correctSum
-      : correctSum + (Math.floor(Math.random() * 10) - 5) || correctSum + 5;
+    // Wrong answer off by 1–4 (hard to spot at a glance)
+    const sign = Math.random() > 0.5 ? 1 : -1;
+    const offset = isCorrect ? 0 : sign * (Math.floor(Math.random() * 4) + 1);
+    const displayTotal = correctTotal + offset;
 
-    setProblem({ a, b, displaySum, isCorrect });
+    const invoiceNum = Math.floor(Math.random() * 9000) + 1000;
+    setProblem({ a, b, c, correctTotal, displayTotal, isCorrect, invoiceNum });
   };
 
-  // Initial load
   useEffect(() => {
     generateProblem();
   }, []);
 
-  // 2. Handle User Input
   const handleAnswer = (userApproved) => {
     if (!problem) return;
-
-    // Logic:
-    // - Problem is TRUE and user clicked APPROVE (True) -> Correct
-    // - Problem is FALSE and user clicked REJECT (False) -> Correct
     const isSuccess = problem.isCorrect === userApproved;
 
     if (isSuccess) {
       setScore((s) => s + 1);
       setFlash("bg-green-200");
-      // Send 'ping' to server (no targetId needed for work tasks)
       onAct("work_task", null);
     } else {
       setFlash("bg-red-200");
+      setScore(0);
+      setPenalty(true);
+      onAct("work_reset", null);
+      setTimeout(() => setPenalty(false), 1500);
     }
 
-    // Reset flash and get new problem
-    setTimeout(() => setFlash(""), 200);
+    setTimeout(() => setFlash(""), 300);
     generateProblem();
   };
 
   return (
     <div
-      className={`p-4 border-2 border-gray-600 bg-[#e0e0d1] shadow-inner transition-colors duration-200 ${flash}`}
+      className={`p-4 border-2 border-gray-600 bg-[#e0e0d1] text-black shadow-inner transition-colors duration-200 ${flash}`}
     >
       {/* Header */}
-      <div className="flex items-end justify-between pb-2 mb-4 border-b border-gray-500">
+      <div className="flex items-end justify-between pb-2 mb-3 border-b border-gray-500">
         <span className="text-xs font-bold text-gray-600 uppercase">
           INVOICE_VERIFICATION.EXE
         </span>
@@ -66,17 +64,38 @@ function AccountantLedger({ onAct }) {
         </span>
       </div>
 
-      {/* The Invoice */}
+      {/* Penalty banner */}
+      {penalty && (
+        <div className="mb-3 p-1 bg-red-800 text-white text-center text-[11px] font-bold tracking-widest animate-blink">
+          ⚠ AUDIT ERROR — QUOTA RESET
+        </div>
+      )}
+
+      {/* Invoice */}
       {problem && (
-        <div className="py-4 mb-4 text-center bg-white border border-gray-300 shadow-sm">
-          <div className="text-gray-500 text-[10px] uppercase mb-1 tracking-widest">
-            Verify Sum
+        <div className="mb-4 bg-white border border-gray-300 shadow-sm font-mono text-sm text-black">
+          <div className="text-center text-gray-400 text-[10px] uppercase tracking-widest py-2 border-b border-gray-200">
+            INVOICE #{problem.invoiceNum}
           </div>
-          <div className="font-mono text-2xl font-bold tracking-widest text-black">
-            ${problem.a} + ${problem.b} ={" "}
-            <span className="underline decoration-dotted decoration-gray-400">
-              ${problem.displaySum}
-            </span>
+          <div className="px-4 py-3 space-y-1">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Services Rendered</span>
+              <span className="font-bold">${problem.a}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Materials</span>
+              <span className="font-bold">${problem.b}</span>
+            </div>
+            <div className="flex justify-between text-red-700">
+              <span>Discount Applied</span>
+              <span className="font-bold">-${problem.c}</span>
+            </div>
+            <div className="border-t border-dashed border-gray-400 pt-2 flex justify-between font-bold text-base">
+              <span>TOTAL DUE</span>
+              <span className="underline decoration-dotted decoration-gray-400">
+                ${problem.displayTotal}
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -97,30 +116,91 @@ function AccountantLedger({ onAct }) {
         </button>
       </div>
 
-      <p className="mt-4 text-[10px] text-center text-gray-500 italic border-t border-gray-300 pt-2">
-        * Correctly processing invoices generates Department Budget Surplus.
-        <br />* Surplus unlocks HR records for eliminated employees.
+      <p className="mt-4 text-xs text-center text-gray-700 font-bold border-t border-gray-300 pt-2">
+        * Errors reset your entire audit quota. Precision required.
       </p>
     </div>
   );
 }
 
+// --- SUB-COMPONENT: Fraudster team vote board ---
+function FraudVoteBoard({ me, players, fraudVotes }) {
+  const aliveFraudsters = players.filter(
+    (p) => p.isActive && p.role === ROLES.FRAUDSTER,
+  );
+
+  // Find the leading target (if any)
+  const tally = {};
+  for (const v of fraudVotes || []) tally[v.targetId] = (tally[v.targetId] || 0) + 1;
+  const topCount = Math.max(0, ...Object.values(tally));
+  const topTargetIds = topCount > 0
+    ? Object.entries(tally).filter(([, c]) => c === topCount).map(([id]) => id)
+    : [];
+  const hasConsensus = topTargetIds.length === 1 && topCount === aliveFraudsters.length;
+
+  return (
+    <div className="mt-3 border-t border-gray-400 border-dashed pt-2">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-bold text-red-900 uppercase tracking-wide">
+          Team Votes
+        </span>
+        {hasConsensus && (
+          <span className="text-[10px] font-bold text-green-800 bg-green-100 px-1 border border-green-700">
+            CONSENSUS
+          </span>
+        )}
+      </div>
+      <div className="space-y-[2px]">
+        {aliveFraudsters.map((f) => {
+          const vote = fraudVotes?.find((v) => v.voterId === f.id);
+          const isMe = f.id === me.id;
+          const isLeading = vote && topTargetIds.includes(vote.targetId) && topCount > 1;
+          return (
+            <div
+              key={f.id}
+              className={`flex items-center justify-between px-2 py-[3px] text-[11px] font-mono
+                ${isLeading ? "bg-red-100 border border-red-400" : "bg-gray-100 border border-gray-300"}`}
+            >
+              <span className={`truncate max-w-[90px] ${isMe ? "font-bold" : "text-gray-700"}`}>
+                {f.name}{isMe ? " (you)" : ""}
+              </span>
+              <span className="flex items-center gap-1">
+                {vote ? (
+                  <>
+                    <span className="text-gray-400">→</span>
+                    <span className={`font-bold ${isLeading ? "text-red-800" : "text-black"}`}>
+                      {vote.targetName}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-gray-400 italic">—</span>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // --- MAIN COMPONENT ---
-export default function NightActions({ me, players, onAct, fraudTally }) {
+export default function NightActions({ me, players, onAct, fraudTally, fraudVotes }) {
   const [targetId, setTargetId] = useState("");
   const [pending, setPending] = useState(false);
   const [submittedFor, setSubmittedFor] = useState(null);
 
-  // ✅ 1. If Accountant, show the Ledger immediately (Exit early)
-  if (me.role === "accountant") {
-    return <AccountantLedger onAct={onAct} />;
-  }
-
-  // --- Logic for other roles (Fraudster, Auditor, Controller) ---
+  // All hooks must run before any conditional return
   const aliveOthers = useMemo(
     () => players.filter((p) => p.isActive && p.id !== me.id),
     [players, me.id],
   );
+
+  if (me.role === ROLES.ACCOUNTANT) {
+    return <AccountantLedger onAct={onAct} />;
+  }
+
+  const isFraudster = me.role === ROLES.FRAUDSTER;
 
   const roleConfig = {
     fraudster: {
@@ -145,25 +225,33 @@ export default function NightActions({ me, players, onAct, fraudTally }) {
 
   if (!config) return <div className="text-xs">NO ACTIONS</div>;
 
+  // Fraudsters can re-vote any time — derive filed state from server votes
+  const myFiledVote = isFraudster
+    ? fraudVotes?.find((v) => v.voterId === me.id)
+    : null;
+
   const submit = async () => {
     if (!targetId || pending) return;
     setPending(true);
 
-    const actionType =
-      me.role === "fraudster"
-        ? "fraudster_target"
-        : me.role === "auditor"
-          ? "audit_check"
-          : "protect_employee";
+    const actionType = isFraudster
+      ? ACTION_TYPES.FRAUD_TARGET
+      : me.role === ROLES.AUDITOR
+        ? ACTION_TYPES.AUDIT_CHECK
+        : ACTION_TYPES.PROTECT;
 
     try {
       await onAct(actionType, targetId);
-      const p = players.find((x) => x.id === targetId);
-      setSubmittedFor(p?.name || "Unknown");
+      if (!isFraudster) {
+        const p = players.find((x) => x.id === targetId);
+        setSubmittedFor(p?.name || "Unknown");
+      }
     } finally {
       setPending(false);
     }
   };
+
+  const isLocked = !isFraudster && (pending || !!submittedFor);
 
   return (
     <div className="font-mono text-sm">
@@ -183,7 +271,7 @@ export default function NightActions({ me, players, onAct, fraudTally }) {
             className="w-full p-1 text-lg text-black bg-white border-2 border-gray-600 font-retro focus:outline-none focus:bg-yellow-50"
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
-            disabled={pending || !!submittedFor}
+            disabled={isLocked}
           >
             <option value="">-- SELECT --</option>
             {aliveOthers.map((p) => (
@@ -196,47 +284,37 @@ export default function NightActions({ me, players, onAct, fraudTally }) {
 
         <button
           onClick={submit}
-          disabled={pending || !targetId}
+          disabled={pending || !targetId || isLocked}
           className="w-full py-2 text-xs font-bold bg-gray-300 border-2 border-black retro-btn hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {pending
             ? "PROCESSING..."
-            : submittedFor
-              ? "ACTION FILED"
-              : config.btnText}
+            : isFraudster && myFiledVote
+              ? "UPDATE VOTE"
+              : submittedFor
+                ? "ACTION FILED"
+                : config.btnText}
         </button>
       </div>
 
-      {/* FEEDBACK MESSAGES */}
-      <div className="pt-2 mt-3 border-t border-gray-400 border-dashed">
-        {me.role === "auditor" && (
+      {/* FEEDBACK / VOTE BOARD */}
+      {me.role === "auditor" && (
+        <div className="pt-2 mt-3 border-t border-gray-400 border-dashed">
           <p className="text-[10px] text-gray-600 italic">
             * Report will be generated at 09:00 AM.
           </p>
-        )}
-        {me.role === "fraudster" && fraudTally && (
-          <div className="p-2 mt-2 bg-gray-200 border border-gray-400">
-            <div className="font-bold text-[10px] text-red-800 mb-1 uppercase">
-              Team Consensus:
-            </div>
-            <ul className="list-square list-inside text-[10px] text-black">
-              {Object.entries(fraudTally).map(([tid, count]) => {
-                const p = players.find((x) => x.id === tid);
-                return (
-                  <li key={tid}>
-                    {p?.name || tid}: {count} votes
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-        {submittedFor && (
-          <div className="inline-block px-2 py-1 mt-2 text-xs font-bold text-green-700 transform border-2 border-green-700 -rotate-2 opacity-80">
-            [✓] FILED: {submittedFor}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {!isFraudster && submittedFor && (
+        <div className="inline-block px-2 py-1 mt-3 text-xs font-bold text-green-700 transform border-2 border-green-700 -rotate-2 opacity-80">
+          [✓] FILED: {submittedFor}
+        </div>
+      )}
+
+      {isFraudster && (
+        <FraudVoteBoard me={me} players={players} fraudVotes={fraudVotes} />
+      )}
     </div>
   );
 }

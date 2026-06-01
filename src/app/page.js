@@ -10,6 +10,8 @@ export default function Home() {
   const [name, setName] = useState("");
   const [roomCode, setRoomCode] = useState("");
   const [errors, setErrors] = useState({ name: "", room: "" });
+  const [confirmCreate, setConfirmCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [bootStep, setBootStep] = useState(0);
   const router = useRouter();
 
@@ -52,13 +54,17 @@ export default function Home() {
 
   function createRoom() {
     if (!validateCreate()) return;
-    if (!confirm("INITIALIZE NEW DEPARTMENT NODE?")) return;
-
+    if (!confirmCreate) {
+      setConfirmCreate(true);
+      return;
+    }
+    setConfirmCreate(false);
+    setCreating(true);
     const socket = getSocket();
     socket.emit("create-room", { hostName: cleanName }, (res) => {
+      setCreating(false);
       if (!res?.ok) return alert("SERVER ERROR: CANNOT CREATE NODE");
 
-      // ✅ persist host session so /room can resume instead of trying to "join" again
       try {
         if (res?.player?.sessionId)
           localStorage.setItem("acct-game:sessionId", res.player.sessionId);
@@ -132,7 +138,7 @@ export default function Home() {
                         placeholder="ENTER NAME..."
                         value={name}
                         maxLength={24}
-                        onChange={(e) => setName(e.target.value.slice(0, 24))}
+                        onChange={(e) => { setName(e.target.value.slice(0, 24)); setConfirmCreate(false); }}
                         onKeyDown={onKeyDown}
                         autoComplete="off"
                       />
@@ -192,13 +198,31 @@ export default function Home() {
                       <p className="text-sm text-black font-retro">
                         NO ASSIGNMENT?
                       </p>
-                      <button
-                        onClick={createRoom}
-                        disabled={!nameValid}
-                        className="w-full py-3 transition-colors retro-btn hover:bg-white active:translate-y-1"
-                      >
-                        OPEN NEW BRANCH
-                      </button>
+                      {!confirmCreate ? (
+                        <button
+                          onClick={createRoom}
+                          disabled={!nameValid || creating}
+                          className="w-full py-3 transition-colors retro-btn hover:bg-white active:translate-y-1"
+                        >
+                          {creating ? "CONNECTING..." : "OPEN NEW BRANCH"}
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <button
+                            onClick={createRoom}
+                            disabled={creating}
+                            className="w-full py-3 font-bold text-white bg-green-800 retro-btn hover:bg-green-700 active:translate-y-1"
+                          >
+                            {creating ? "CONNECTING..." : "CONFIRM NEW BRANCH?"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmCreate(false)}
+                            className="w-full py-2 text-sm retro-btn hover:bg-gray-200 active:translate-y-1"
+                          >
+                            CANCEL
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -3,13 +3,23 @@ import { useState, useRef, useEffect } from "react";
 
 export default function AudioController({ phase }) {
   const [isMuted, setIsMuted] = useState(true);
-  const [userVol, setUserVol] = useState(0.5); // User's master volume setting (0 to 1)
+  const [userVol, setUserVol] = useState(() => {
+    try {
+      const saved = localStorage.getItem("oos:volume");
+      return saved !== null ? parseFloat(saved) : 0.5;
+    } catch {
+      return 0.5;
+    }
+  });
   const audioRef = useRef(null);
 
   // Initialize Audio
   useEffect(() => {
-    audioRef.current = new Audio("/audio/bg-music.ogg");
-    audioRef.current.loop = true;
+    const audio = new Audio();
+    const src = audio.canPlayType("audio/ogg") ? "/audio/bg-music.ogg" : "/audio/bg-music.mp3";
+    audio.src = src;
+    audio.loop = true;
+    audioRef.current = audio;
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -42,6 +52,7 @@ export default function AudioController({ phase }) {
   const handleBarClick = (index) => {
     const newVol = (index + 1) / 10; // 10 bars total
     setUserVol(newVol);
+    try { localStorage.setItem("oos:volume", String(newVol)); } catch {}
     if (isMuted) setIsMuted(false);
   };
 

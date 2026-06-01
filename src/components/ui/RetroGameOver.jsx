@@ -1,12 +1,24 @@
 "use client";
 
+const REASON_LABELS = {
+  "fraudsters:after-night":
+    "Fraudsters seized board majority via hostile termination",
+  "fraudsters:after-day":
+    "Fraudsters gained board majority during shareholder vote",
+  "employees:after-day": "All fraudsters removed via shareholder vote",
+  "employees:after-night": "All fraudsters eliminated during audit",
+};
+
 export default function RetroGameOver({
   winner,
   reason,
   players = [],
   onRestart,
+  isHost = false,
 }) {
-  const isFraudWin = winner === "fraudster";
+  const isFraudWin = winner === "fraudsters";
+  const reasonLabel =
+    REASON_LABELS[`${winner}:${reason}`] || reason || "Unknown";
 
   // Classic BSOD Blue or Hacker Green/Red based on winner
   const bgClass = isFraudWin ? "bg-[#880000]" : "bg-[#0000AA]";
@@ -41,7 +53,7 @@ export default function RetroGameOver({
           </div>
         </div>
         <div className="px-4 py-2 text-sm border rounded bg-black/30 border-white/20">
-          Termination Reason: {reason}
+          Termination Reason: {reasonLabel}
         </div>
       </div>
 
@@ -65,17 +77,25 @@ export default function RetroGameOver({
         </div>
       </div>
 
-      {/* Restart Action */}
+      {/* Restart Action — host only */}
       <div className="mt-12 text-center">
-        <p className="mb-4 text-sm opacity-80">
-          Press any key to restart the system...
-        </p>
-        <button
-          onClick={onRestart}
-          className="px-6 py-3 text-xl font-bold text-black bg-white font-retro hover:bg-gray-300 active:scale-95"
-        >
-          RESTART_SYSTEM.BAT
-        </button>
+        {isHost ? (
+          <>
+            <p className="mb-4 text-sm opacity-80">
+              Press any key to restart the system...
+            </p>
+            <button
+              onClick={onRestart}
+              className="px-6 py-3 text-xl font-bold text-black bg-white font-retro hover:bg-gray-300 active:scale-95"
+            >
+              RESTART_SYSTEM.BAT
+            </button>
+          </>
+        ) : (
+          <p className="text-sm opacity-60 italic">
+            Waiting for host to restart the session...
+          </p>
+        )}
       </div>
     </div>
   );

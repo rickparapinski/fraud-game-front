@@ -74,19 +74,19 @@ export default function GameLog({ logs = [] }) {
       {/* Scrollable Log Area */}
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
         <ul className="space-y-1 tracking-wider font-retro">
-          {logs.map((log, i) => {
+          {logs.map((log) => {
             const message = formatLog(log);
             if (!message) return null;
 
-            // Determine color based on content context
+            // Determine color based on log type
             let colorClass = "text-green-400";
-            if (
-              message.includes("TERMINATED") ||
-              message.includes("eliminated")
-            )
+            if (log.type === "night-results") colorClass = "text-blue-300";
+            if (log.type === "day-results") colorClass = "text-yellow-300";
+            if (log.type === "game-over") colorClass = "text-purple-300 font-bold";
+            if (log.type === "night-results" && (log.data?.eliminatedId || log.data?.eliminatedName))
               colorClass = "text-red-500 font-bold";
-            if (message.includes("Day")) colorClass = "text-yellow-300";
-            if (message.includes("Night")) colorClass = "text-blue-300";
+            if (log.type === "day-results" && (log.data?.eliminatedId || log.data?.eliminatedName))
+              colorClass = "text-red-400 font-bold";
 
             // Format Timestamp
             const time = log.ts
@@ -98,7 +98,7 @@ export default function GameLog({ logs = [] }) {
               : "00:00:00";
 
             return (
-              <li key={i} className="flex items-start gap-2 leading-tight">
+              <li key={log.id} className="flex items-start gap-2 leading-tight">
                 <span className="opacity-50 text-xs mt-[2px] select-none">
                   [{time}]
                 </span>
