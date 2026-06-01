@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useGameLogic } from "@/hooks/useGameLogic";
 
 // UI Components
@@ -25,6 +25,7 @@ const DEV_CONTROLS = process.env.NEXT_PUBLIC_ALLOW_BOTS === "true";
 export default function RoomPage() {
   const params = useParams();
   const search = useSearchParams();
+  const router = useRouter();
   const name = (search.get("name") || "Player").trim();
   const roomCode = useMemo(
     () => (params?.roomCode ? String(params.roomCode).toUpperCase() : ""),
@@ -114,7 +115,7 @@ export default function RoomPage() {
               winner={game.gameOver.winner}
               reason={game.gameOver.reason}
               players={game.gameOver.players || game.players}
-              onRestart={actions.startGame}
+              onRestart={() => router.push("/")}
               isHost={game.isHost}
             />
           )}
@@ -336,7 +337,7 @@ export default function RoomPage() {
                 gameOver={game.gameOver}
                 onStartGame={actions.startGame}
                 onBeginNight={actions.beginNight}
-                onRestart={actions.startGame}
+                onRestart={() => router.push("/")}
               />
 
               {/* 2. STAFF DIRECTORY */}

@@ -77,25 +77,14 @@ export default function RetroGameOver({
         </div>
       </div>
 
-      {/* Restart Action — host only */}
+      {/* Back to lobby */}
       <div className="mt-12 text-center">
-        {isHost ? (
-          <>
-            <p className="mb-4 text-sm opacity-80">
-              Press any key to restart the system...
-            </p>
-            <button
-              onClick={onRestart}
-              className="px-6 py-3 text-xl font-bold text-black bg-white font-retro hover:bg-gray-300 active:scale-95"
-            >
-              RESTART_SYSTEM.BAT
-            </button>
-          </>
-        ) : (
-          <p className="text-sm opacity-60 italic">
-            Waiting for host to restart the session...
-          </p>
-        )}
+        <button
+          onClick={onRestart}
+          className="px-6 py-3 text-xl font-bold text-black bg-[#c0c0c0] retro-btn font-retro hover:bg-white active:translate-y-1"
+        >
+          NEW_ROOM.BAT
+        </button>
       </div>
     </div>
   );
