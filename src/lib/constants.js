@@ -2,6 +2,8 @@ export const ACTION_TYPES = {
   FRAUD_TARGET: "fraudster_target",
   AUDIT_CHECK: "audit_check",
   PROTECT: "protect_employee",
+  WORK_TASK: "work_task",
+  WORK_RESET: "work_reset",
 };
 
 export const PHASES = {

@@ -1,26 +1,15 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { getSocket } from "@/lib/socket";
+import { saveSession, loadSession } from "@/lib/session";
+import { useGameActions } from "@/hooks/useGameActions";
 
-const SESSION_KEY = "acct-game:sessionId";
-const ROOM_KEY = "acct-game:roomCode";
-
-function saveSession(sessionId, roomCode) {
-  try {
-    if (sessionId) localStorage.setItem(SESSION_KEY, sessionId);
-    if (roomCode) localStorage.setItem(ROOM_KEY, roomCode);
-  } catch {}
-}
-
-function loadSession() {
-  try {
-    return {
-      sessionId: localStorage.getItem(SESSION_KEY) || "",
-      roomCode: localStorage.getItem(ROOM_KEY) || "",
-    };
-  } catch {
-    return { sessionId: "", roomCode: "" };
-  }
+function mergeLogs(prev, incoming) {
+  const map = new Map();
+  for (const e of prev || []) if (e?.id) map.set(e.id, e);
+  for (const e of incoming || [])
+    if (e?.id && !map.has(e.id)) map.set(e.id, e);
+  return Array.from(map.values()).sort((a, b) => (a.ts || 0) - (b.ts || 0));
 }
 
 export function useGameLogic(roomCode, name) {
@@ -36,8 +25,8 @@ export function useGameLogic(roomCode, name) {
   const [totalMs, setTotalMs] = useState(0);
   const [error, setError] = useState("");
   const [auditMsg, setAuditMsg] = useState("");
-  const [auditHistory, setAuditHistory] = useState({}); // { [sessionId]: { name, isFraudster } }
-  const [protectHistory, setProtectHistory] = useState({}); // { [sessionId]: { name, count } }
+  const [auditHistory, setAuditHistory] = useState({});
+  const [protectHistory, setProtectHistory] = useState({});
   const [nightSummary, setNightSummary] = useState(null);
   const [daySummary, setDaySummary] = useState(null);
   const [gameOver, setGameOver] = useState(null);
@@ -47,21 +36,14 @@ export function useGameLogic(roomCode, name) {
   const [hasVotedDay, setHasVotedDay] = useState(false);
   const [connected, setConnected] = useState(false);
   const [mySessionId, setMySessionId] = useState("");
-  const joinedRef = useRef(false);
   const [dayVotingStatus, setDayVotingStatus] = useState([]);
+  const joinedRef = useRef(false);
 
-  const mergeLogs = (prev, incoming) => {
-    const map = new Map();
-    for (const e of prev || []) if (e?.id) map.set(e.id, e);
-    for (const e of incoming || [])
-      if (e?.id && !map.has(e.id)) map.set(e.id, e);
-    return Array.from(map.values()).sort((a, b) => (a.ts || 0) - (b.ts || 0));
-  };
+  const { socketEmit, actions } = useGameActions(roomCode, setError, setHasVotedDay);
 
-  // --- Socket Setup (With Resume Logic) ---
+  // --- Connection, join/resume negotiation, and event listener registration ---
   useEffect(() => {
     if ((!roomCode && !loadSession().roomCode) || joinedRef.current) return;
-
     joinedRef.current = true;
 
     let socket;
@@ -114,16 +96,15 @@ export function useGameLogic(roomCode, name) {
         }
 
         setIsHost(!!res?.player?.isHost);
-
         if (res?.room?.players) setPlayers(res.room.players);
         if (res?.room?.currentPhase) setPhase(res.room.currentPhase);
         if (res?.room?.logs) setLogs((prev) => mergeLogs(prev, res.room.logs));
 
+        // --- Event handlers ---
         handlers = {
           "player-joined": ({ players }) => setPlayers(players || []),
           "host-changed": ({ newHostId }) => setIsHost(socket.id === newHostId),
           "game-started": (data) => {
-            console.log("[socket] game-started", data);
             setPhase(data.currentPhase || "night");
             setPlayers(data.players || []);
             setLogs((prev) => mergeLogs(prev, data.logs));
@@ -138,7 +119,6 @@ export function useGameLogic(roomCode, name) {
             setGameOver(null);
           },
           "your-role": ({ role, instructions, teammates }) => {
-            console.log("YOUR ROLE EVENT", { role, instructions, teammates });
             setMyRole(role);
             setRoleInfo(instructions);
             setTeammates(teammates || []);
@@ -146,7 +126,6 @@ export function useGameLogic(roomCode, name) {
             setProtectHistory({});
           },
           "phase-changed": (data) => {
-            console.log("[socket] phase-changed", data);
             setPhase(data.phase);
             if (data.phase !== "day") setDayVotingStatus([]);
             setDeadline(data.deadline || null);
@@ -195,41 +174,20 @@ export function useGameLogic(roomCode, name) {
           "day-results": (data) => setDaySummary(data),
           "log-entry": (entry) => setLogs((prev) => mergeLogs(prev, [entry])),
           "game-over": (data) => setGameOver(data),
-          "day-voting-status": ({ status }) => {
-            setDayVotingStatus(status || []);
-          },
+          "day-voting-status": ({ status }) => setDayVotingStatus(status || []),
         };
 
         Object.entries(handlers).forEach(([evt, fn]) => socket.on(evt, fn));
-      } catch (e) {
+      } catch {
         setError("Connection failed.");
       }
     })();
 
     return () => {
-      if (socket && handlers) {
+      if (socket && handlers)
         Object.entries(handlers).forEach(([evt, fn]) => socket.off(evt, fn));
-      }
     };
   }, [roomCode, name]);
-
-  const socketEmit = (event, data) =>
-    new Promise((resolve, reject) => {
-      getSocket()
-        .timeout(5000)
-        .emit(event, data, (err, res) => {
-          if (err) {
-            setError("Action timed out.");
-            reject(new Error("Action timed out."));
-          } else if (!res?.ok) {
-            const msg = res?.error || "Action failed";
-            setError(typeof msg === "string" ? msg : JSON.stringify(msg));
-            reject(new Error(msg));
-          } else {
-            resolve(res);
-          }
-        });
-    });
 
   return {
     players,
@@ -260,19 +218,6 @@ export function useGameLogic(roomCode, name) {
     fraudTally,
     fraudVotes,
     hasVotedDay,
-    actions: {
-      startGame: () => socketEmit("start-game", { roomCode }),
-      beginNight: () => socketEmit("begin-night", { roomCode }),
-      submitNightAction: (type, targetId) =>
-        socketEmit("night-action", { roomCode, type, targetId }),
-      castDayVote: async (targetId) => {
-        await socketEmit("day-vote", { roomCode, targetId });
-        setHasVotedDay(true);
-      },
-      spawnBots: (count) => socketEmit("debug-spawn-bots", { roomCode, count }),
-      despawnBots: () => socketEmit("debug-despawn-bots", { roomCode }),
-      setDevRole: (role) =>
-        socketEmit("debug-set-host-role", { roomCode, role }),
-    },
+    actions,
   };
 }

@@ -37,12 +37,12 @@ function AccountantLedger({ onAct }) {
     if (isSuccess) {
       setScore((s) => s + 1);
       setFlash("bg-green-200");
-      onAct("work_task", null);
+      onAct(ACTION_TYPES.WORK_TASK, null);
     } else {
       setFlash("bg-red-200");
       setScore(0);
       setPenalty(true);
-      onAct("work_reset", null);
+      onAct(ACTION_TYPES.WORK_RESET, null);
       setTimeout(() => setPenalty(false), 1500);
     }
 
