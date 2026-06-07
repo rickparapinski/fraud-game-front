@@ -25,9 +25,9 @@ export function useGameLogic(roomCode, name) {
   const [totalMs, setTotalMs] = useState(0);
   const [error, setError] = useState("");
   const [auditMsg, setAuditMsg] = useState("");
+  const [auditTitle, setAuditTitle] = useState("");
   const [auditHistory, setAuditHistory] = useState({});
   const [protectHistory, setProtectHistory] = useState({});
-  const [nightSummary, setNightSummary] = useState(null);
   const [daySummary, setDaySummary] = useState(null);
   const [gameOver, setGameOver] = useState(null);
   const [fraudTally, setFraudTally] = useState(null);
@@ -111,7 +111,6 @@ export function useGameLogic(roomCode, name) {
             setDeadline(null);
             setTotalMs(data.totalMs || 0);
             setOffsetMs((data.serverNow || Date.now()) - Date.now());
-            setNightSummary(null);
             setFraudTally(null);
             setFraudVotes(null);
             setDaySummary(null);
@@ -131,7 +130,6 @@ export function useGameLogic(roomCode, name) {
             setDeadline(data.deadline || null);
             if (data.phase === "day") setHasVotedDay(false);
             if (data.players) setPlayers(data.players);
-            setNightSummary(null);
             setFraudTally(null);
             setFraudVotes(null);
             setDaySummary(null);
@@ -140,22 +138,22 @@ export function useGameLogic(roomCode, name) {
             setFraudTally(tally);
             setFraudVotes(votes);
           },
-          "night-results": (data) => setNightSummary(data),
-          "audit-result": ({ isFraudster, targetName, targetSessionId }) => {
+          "night-results": () => {},
+          "audit-result": ({ isFraudster, targetName, targetSessionId, role }) => {
             setAuditMsg(
               isFraudster
                 ? `⚠ ${targetName} is a FRAUDSTER. Use this info well.`
-                : `${targetName} is NOT a fraudster.`,
+                : `${targetName} is NOT a fraudster — role: ${(role || "unknown").toUpperCase()}.`,
             );
             if (targetSessionId) {
               setAuditHistory((prev) => ({
                 ...prev,
-                [targetSessionId]: { name: targetName, isFraudster },
+                [targetSessionId]: { name: targetName, isFraudster, role: role || (isFraudster ? "fraudster" : "unknown") },
               }));
             }
           },
           "audit-missed": () => {
-            setAuditMsg("NO REPORT FILED — time expired before audit was submitted.");
+            setAuditMsg("You did not submit your action. The board is displeased.");
           },
           "protect-result": ({ targetSessionId, targetName }) => {
             if (targetSessionId) {
@@ -167,9 +165,16 @@ export function useGameLogic(roomCode, name) {
                 },
               }));
             }
+            setAuditTitle("PROTECTION_REPORT");
+            setAuditMsg(`Security detail confirmed for ${targetName}.`);
           },
           "protect-missed": () => {
-            setAuditMsg("NO GUARD ASSIGNED — time expired before protection was submitted.");
+            setAuditTitle("MESSAGE_FROM_BOARD");
+            setAuditMsg("You did not submit your action. The board is displeased.");
+          },
+          "work-missed": () => {
+            setAuditTitle("MESSAGE_FROM_BOARD");
+            setAuditMsg("Quota not met. Your team failed to balance the books. The board is displeased.");
           },
           "day-results": (data) => setDaySummary(data),
           "log-entry": (entry) => setLogs((prev) => mergeLogs(prev, [entry])),
@@ -208,10 +213,10 @@ export function useGameLogic(roomCode, name) {
     setError,
     auditMsg,
     setAuditMsg,
+    auditTitle,
+    setAuditTitle,
     auditHistory,
     protectHistory,
-    nightSummary,
-    setNightSummary,
     daySummary,
     setDaySummary,
     gameOver,

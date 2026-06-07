@@ -14,21 +14,22 @@ export default function RetroPhaseSummary({
   }, [onDismiss]);
 
   const isDay = phase === "morning_meeting";
-  const title = isDay ? "DAILY_TERMINATION_REPORT" : "NIGHTLY_SECURITY_LOG";
 
   return (
     <div className="animate-in slide-in-from-top-10 duration-500 relative w-[320px] mx-auto mt-4 font-mono text-sm text-black">
       {/* Paper Styling */}
       <div className="bg-[#fff0cf] border border-gray-400 p-4 shadow-[5px_5px_15px_rgba(0,0,0,0.5)] rotate-1">
-        {/* Header */}
-        <div className="pb-2 mb-3 text-center border-b-2 border-black border-dashed">
-          <h3 className="text-lg font-bold tracking-widest uppercase">
-            {title}
-          </h3>
-          <p className="text-[10px] opacity-60">
-            CONFIDENTIAL // INTERNAL USE ONLY
-          </p>
-        </div>
+        {/* Header — day only */}
+        {isDay && (
+          <div className="pb-2 mb-3 text-center border-b-2 border-black border-dashed">
+            <h3 className="text-lg font-bold tracking-widest uppercase">
+              DAILY_TERMINATION_REPORT
+            </h3>
+            <p className="text-[10px] opacity-60">
+              CONFIDENTIAL // INTERNAL USE ONLY
+            </p>
+          </div>
+        )}
 
         {/* Body */}
         <div className="space-y-2 text-center">

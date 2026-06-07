@@ -39,6 +39,20 @@ body {
   to   { transform: translateX(-50%); }
 }
 
+/* --- TIMER URGENCY --- */
+@keyframes timer-urgent-pulse {
+  from {
+    opacity: 1;
+    text-shadow: 0 0 6px #ff4444, 0 0 12px #ff4444;
+    box-shadow: 0 0 6px #ff4444 inset;
+  }
+  to {
+    opacity: 0.6;
+    text-shadow: 0 0 2px #ff4444;
+    box-shadow: none;
+  }
+}
+
 /* --- CRT ANIMATIONS --- */
 @keyframes flicker {
   0% {

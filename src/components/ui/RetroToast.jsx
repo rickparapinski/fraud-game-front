@@ -5,6 +5,7 @@ import { X, AlertTriangle, CheckCircle } from "lucide-react";
 export default function RetroToast({
   message,
   type = "info",
+  title: titleOverride,
   onClose,
   duration = 4000,
 }) {
@@ -42,7 +43,7 @@ export default function RetroToast({
     },
   };
 
-  const style = config[type] || config.info;
+  const style = { ...(config[type] || config.info), ...(titleOverride ? { title: titleOverride } : {}) };
 
   return (
     <div className="animate-in fade-in slide-in-from-top-5 duration-200 retro-window min-w-[300px] shadow-xl">
@@ -73,15 +74,17 @@ export default function RetroToast({
 
         {/* Message */}
         <div className="flex-1">
-          <p className="mb-2 text-lg leading-tight text-black uppercase font-retro">
+          <p className="text-lg leading-tight text-black uppercase font-retro">
             {message}
           </p>
-          <button
-            onClick={onClose}
-            className="px-4 py-1 text-xs font-bold bg-gray-300 retro-btn active:translate-y-1"
-          >
-            OK
-          </button>
+          {type !== "audit" && (
+            <button
+              onClick={onClose}
+              className="mt-2 px-4 py-1 text-xs font-bold bg-gray-300 retro-btn active:translate-y-1"
+            >
+              OK
+            </button>
+          )}
         </div>
       </div>
     </div>

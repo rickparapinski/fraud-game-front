@@ -31,16 +31,10 @@ export default function GameLog({ logs = [] }) {
       return `Day ${num}: NO ELIMINATION.`;
     }
 
-    // Handle Night Results (Attacks/Saves)
+    // Handle Night Results — use backend text directly so role reveals and
+    // protection details are never lost
     if (log.type === "night-results") {
-      const { eliminatedName, protectedName } = log.data || {};
-      if (eliminatedName) {
-        return `Night ${num}: ${eliminatedName} TERMINATED.`;
-      }
-      if (protectedName) {
-        return `Night ${num}: FRAUD PREVENTED (PWC PROTECTION).`;
-      }
-      return `Night ${num}: NO ACTIVITY DETECTED.`;
+      return log.text || "";
     }
 
     // Handle Standard Text (Fallback to 'text' or 'message')

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useGameLogic } from "@/hooks/useGameLogic";
 
@@ -36,9 +36,15 @@ export default function RoomPage() {
   const game = useGameLogic(roomCode, name);
   const { actions } = game;
 
+  // Stable callbacks so toast/summary timers don't reset on every re-render
+  const handleCloseError = useCallback(() => game.setError(""), [game.setError]);
+  const handleCloseAuditMsg = useCallback(() => { game.setAuditMsg(""); game.setAuditTitle(""); }, [game.setAuditMsg, game.setAuditTitle]);
+  const handleDismissDaySummary = useCallback(() => game.setDaySummary(null), [game.setDaySummary]);
+
   // -- Local UI State --
   const [devMode, setDevMode] = useState(false);
-  const [botCount, setBotCount] = useState(6);
+  const [botCount, setBotCount] = useState(10);
+  const [botsSpawned, setBotsSpawned] = useState(false);
   const [devRole, setDevRole] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -64,23 +70,28 @@ export default function RoomPage() {
 
   // Time Left Calc
   const [timeLeft, setTimeLeft] = useState("00:00");
+  const [msLeft, setMsLeft] = useState(0);
   useEffect(() => {
     if (!game.deadline) {
       setTimeLeft("00:00");
+      setMsLeft(0);
       return;
     }
     const interval = setInterval(() => {
       const ms = game.deadline - (Date.now() + game.offsetMs);
       if (ms <= 0) {
         setTimeLeft("00:00");
+        setMsLeft(0);
         return;
       }
+      setMsLeft(ms);
       const m = Math.floor(ms / 60000);
       const s = Math.floor((ms % 60000) / 1000);
       setTimeLeft(`${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`);
     }, 1000);
     return () => clearInterval(interval);
   }, [game.deadline, game.offsetMs]);
+  const timerUrgent = msLeft > 0 && msLeft <= 10000;
 
   const phaseLabel =
     game.phase === "lobby"
@@ -157,7 +168,15 @@ export default function RoomPage() {
             {/* Right: Clock */}
             <div className="flex items-center h-full gap-2">
               <AudioController phase={game.phase} />
-              <div className="w-20 px-2 font-mono text-xl text-center text-red-500 bg-black border-2 border-gray-600 border-b-white border-r-white">
+              <div
+                className="w-20 px-2 font-mono text-xl text-center bg-black border-2 border-gray-600 border-b-white border-r-white"
+                style={timerUrgent ? {
+                  color: "#ff4444",
+                  borderColor: "#ff4444",
+                  animation: "timer-urgent-pulse 0.6s ease-in-out infinite alternate",
+                  textShadow: "0 0 8px #ff4444",
+                } : { color: "#ef4444" }}
+              >
                 {timeLeft}
               </div>
             </div>
@@ -172,33 +191,24 @@ export default function RoomPage() {
                   <RetroToast
                     type="error"
                     message={game.error}
-                    onClose={() => game.setError("")}
+                    onClose={handleCloseError}
                   />
                 )}
                 {game.auditMsg && (
                   <RetroToast
                     type="audit"
+                    title={game.auditTitle || undefined}
                     message={game.auditMsg}
                     duration={12000}
-                    onClose={() => game.setAuditMsg("")}
+                    onClose={handleCloseAuditMsg}
                   />
                 )}
-
-                {game.nightSummary && (
-                  <RetroPhaseSummary
-                    phase="night"
-                    eliminatedName={game.nightSummary.eliminatedName}
-                    protectedName={game.nightSummary.protectedName}
-                    onDismiss={() => game.setNightSummary(null)}
-                  />
-                )}
-
                 {game.daySummary && (
                   <RetroPhaseSummary
-                    phase="day"
+                    phase="morning_meeting"
                     eliminatedName={game.daySummary.eliminatedName}
                     eliminatedRole={game.daySummary.eliminatedRole}
-                    onDismiss={() => game.setDaySummary(null)}
+                    onDismiss={handleDismissDaySummary}
                   />
                 )}
               </div>
@@ -248,13 +258,20 @@ export default function RoomPage() {
                             {game.roleInfo}
                           </span>
 
-                          {game.teammates.length > 0 && (
+{game.teammates.length > 0 && (
                             <>
                               <span className="font-bold text-[10px] uppercase text-red-600 text-right">
                                 Partners:
                               </span>
-                              <span className="font-mono text-xs font-bold text-red-800">
-                                {game.teammates.map((t) => t.name).join(", ")}
+                              <span className="font-mono text-xs font-bold text-red-800 flex flex-wrap gap-x-1">
+                                {game.teammates.map((t, i) => {
+                                  const alive = game.players.find((p) => p.id === t.id)?.isActive !== false;
+                                  return (
+                                    <span key={t.id} className={alive ? "" : "line-through opacity-50"}>
+                                      {t.name}{i < game.teammates.length - 1 ? "," : ""}
+                                    </span>
+                                  );
+                                })}
                               </span>
                             </>
                           )}
@@ -278,6 +295,7 @@ export default function RoomPage() {
                               fraudVotes={game.fraudVotes}
                               auditHistory={game.auditHistory}
                               protectHistory={game.protectHistory}
+                              teammates={game.teammates}
                             />
                           )}
                           {game.phase === "day" && (
@@ -397,17 +415,25 @@ export default function RoomPage() {
                                   onChange={(e) =>
                                     setBotCount(Number(e.target.value))
                                   }
-                                  className="w-10 text-center text-white bg-gray-800 border border-gray-600"
+                                  disabled={botsSpawned}
+                                  className="w-10 text-center text-white bg-gray-800 border border-gray-600 disabled:opacity-40"
                                 />
                                 <button
-                                  onClick={() => actions.spawnBots(botCount)}
-                                  className="flex-1 border border-gray-600 hover:bg-gray-800"
+                                  onClick={async () => {
+                                    await actions.spawnBots(botCount);
+                                    setBotsSpawned(true);
+                                  }}
+                                  disabled={botsSpawned}
+                                  className="flex-1 border border-gray-600 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
-                                  SPAWN
+                                  {botsSpawned ? "SPAWNED" : "SPAWN"}
                                 </button>
                               </div>
                               <button
-                                onClick={actions.despawnBots}
+                                onClick={async () => {
+                                  await actions.despawnBots();
+                                  setBotsSpawned(false);
+                                }}
                                 className="w-full text-red-500 border border-red-900 hover:bg-red-950"
                               >
                                 CLEAR BOTS

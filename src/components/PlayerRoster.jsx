@@ -16,7 +16,7 @@ export default function PlayerRoster({
       </div>
       <div className="flex-1 p-2 overflow-y-auto bg-white border-2 border-gray-600 shadow-inner">
         <div className="grid grid-cols-1 gap-2">
-          {players.map((p) => (
+          {[...players].sort((a, b) => b.isActive - a.isActive).map((p) => (
             <div
               key={p.id}
               className={`flex items-center gap-2 p-1 border ${
@@ -47,35 +47,38 @@ export default function PlayerRoster({
                 </div>
               </div>
 
-              {myRole === ROLES.AUDITOR && p.sessionId !== mySessionId && (() => {
-                const entry = auditHistory[p.sessionId];
-                if (!entry) return null;
-                return (
-                  <span
-                    className={`ml-auto text-[9px] font-bold px-1 py-px border font-pixel ${
-                      entry.isFraudster
-                        ? "text-red-700 bg-red-100 border-red-500"
-                        : "text-green-700 bg-green-100 border-green-500"
-                    }`}
-                    title={`Audited: ${entry.isFraudster ? "FRAUDSTER" : "CLEAN"}`}
-                  >
-                    {entry.isFraudster ? "FRAUD" : "CLEAN"}
-                  </span>
-                );
-              })()}
+              {myRole === ROLES.AUDITOR &&
+                p.sessionId !== mySessionId &&
+                (() => {
+                  const entry = auditHistory[p.sessionId];
+                  if (!entry) return null;
+                  return (
+                    <span
+                      className={`ml-auto text-[9px] font-bold px-1 py-px border font-pixel ${
+                        entry.isFraudster
+                          ? "text-red-700 bg-red-100 border-red-500"
+                          : "text-green-700 bg-green-100 border-green-500"
+                      }`}
+                    >
+                      {(entry.role || (entry.isFraudster ? "fraudster" : "unknown")).toUpperCase()}
+                    </span>
+                  );
+                })()}
 
-              {myRole === ROLES.CONTROLLER && p.sessionId !== mySessionId && (() => {
-                const entry = protectHistory[p.sessionId];
-                if (!entry) return null;
-                return (
-                  <span
-                    className="ml-auto text-[9px] font-bold px-1 py-px border font-pixel text-blue-700 bg-blue-100 border-blue-500"
-                    title={`Protected ${entry.count}x`}
-                  >
-                    {`GUARDED${entry.count > 1 ? ` ×${entry.count}` : ""}`}
-                  </span>
-                );
-              })()}
+              {myRole === ROLES.CONTROLLER &&
+                p.sessionId !== mySessionId &&
+                (() => {
+                  const entry = protectHistory[p.sessionId];
+                  if (!entry) return null;
+                  return (
+                    <span
+                      className="ml-auto text-[9px] font-bold px-1 py-px border font-pixel text-blue-700 bg-blue-100 border-blue-500"
+                      title={`Protected ${entry.count}x`}
+                    >
+                      {`GUARDED${entry.count > 1 ? ` ×${entry.count}` : ""}`}
+                    </span>
+                  );
+                })()}
 
               {phase === "day" && p.isActive && (
                 <span

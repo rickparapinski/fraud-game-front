@@ -95,12 +95,20 @@ export default function CityBackground({ phase }) {
         }}
       />
       {/* Office room overlay — dark walls frame the monitor, city shows through transparent windows */}
-      <img
-        src="/office-overlay.png"
-        alt=""
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ objectFit: "cover", imageRendering: "pixelated" }}
-      />
+      {["day", "night"].map((variant) => (
+        <img
+          key={variant}
+          src={`/office-overlay-${variant}.png`}
+          alt=""
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{
+            objectFit: "cover",
+            imageRendering: "pixelated",
+            opacity: activeScene === variant || (activeScene === "lobby" && variant === "day") ? 1 : 0,
+            transition: "opacity 2s ease",
+          }}
+        />
+      ))}
     </div>
   );
 }

@@ -124,10 +124,13 @@ function AccountantLedger({ onAct }) {
 }
 
 // --- SUB-COMPONENT: Fraudster team vote board ---
-function FraudVoteBoard({ me, players, fraudVotes }) {
-  const aliveFraudsters = players.filter(
-    (p) => p.isActive && p.role === ROLES.FRAUDSTER,
-  );
+function FraudVoteBoard({ me, players, fraudVotes, teammates }) {
+  // Build full fraudster list from teammates (co-fraudsters) + self, then cross-ref isActive from public roster
+  const aliveFraudsters = [...(teammates || []).map((t) => ({ id: t.id, name: t.name })), { id: me.id, name: me.name }]
+    .filter((f) => {
+      const p = players.find((p) => p.id === f.id);
+      return p ? p.isActive : true;
+    });
 
   // Find the leading target (if any)
   const tally = {};
@@ -161,7 +164,7 @@ function FraudVoteBoard({ me, players, fraudVotes }) {
               className={`flex items-center justify-between px-2 py-[3px] text-[11px] font-mono
                 ${isLeading ? "bg-red-100 border border-red-400" : "bg-gray-100 border border-gray-300"}`}
             >
-              <span className={`truncate max-w-[90px] ${isMe ? "font-bold" : "text-gray-700"}`}>
+              <span className={`truncate max-w-[90px] ${isMe ? "font-bold text-black" : "text-gray-700"}`}>
                 {f.name}{isMe ? " (you)" : ""}
               </span>
               <span className="flex items-center gap-1">
@@ -185,10 +188,11 @@ function FraudVoteBoard({ me, players, fraudVotes }) {
 }
 
 // --- MAIN COMPONENT ---
-export default function NightActions({ me, players, onAct, fraudTally, fraudVotes, auditHistory, protectHistory }) {
+export default function NightActions({ me, players, onAct, fraudTally, fraudVotes, auditHistory, protectHistory, teammates }) {
   const [targetId, setTargetId] = useState("");
   const [pending, setPending] = useState(false);
   const [submittedFor, setSubmittedFor] = useState(null);
+  const isFraudster = me.role === ROLES.FRAUDSTER;
 
   // All hooks must run before any conditional return
   const aliveOthers = useMemo(
@@ -196,11 +200,15 @@ export default function NightActions({ me, players, onAct, fraudTally, fraudVote
     [players, me.id],
   );
 
+  // Keep fraudster dropdown in sync with their server-confirmed vote
+  const myFiledVoteId = isFraudster ? fraudVotes?.find((v) => v.voterId === me.id)?.targetId : null;
+  useEffect(() => {
+    if (myFiledVoteId) setTargetId(myFiledVoteId);
+  }, [myFiledVoteId]);
+
   if (me.role === ROLES.ACCOUNTANT) {
     return <AccountantLedger onAct={onAct} />;
   }
-
-  const isFraudster = me.role === ROLES.FRAUDSTER;
 
   const roleConfig = {
     fraudster: {
@@ -225,10 +233,7 @@ export default function NightActions({ me, players, onAct, fraudTally, fraudVote
 
   if (!config) return <div className="text-xs">NO ACTIONS</div>;
 
-  // Fraudsters can re-vote any time — derive filed state from server votes
-  const myFiledVote = isFraudster
-    ? fraudVotes?.find((v) => v.voterId === me.id)
-    : null;
+  const myFiledVote = myFiledVoteId ? fraudVotes?.find((v) => v.voterId === me.id) : null;
 
   const submit = async () => {
     if (!targetId || pending) return;
@@ -317,7 +322,7 @@ export default function NightActions({ me, players, onAct, fraudTally, fraudVote
       )}
 
       {isFraudster && (
-        <FraudVoteBoard me={me} players={players} fraudVotes={fraudVotes} />
+        <FraudVoteBoard me={me} players={players} fraudVotes={fraudVotes} teammates={teammates} />
       )}
     </div>
   );
