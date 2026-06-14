@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getSocket } from "@/lib/socket";
 import { useRouter } from "next/navigation";
 import Monitor from "@/components/Monitor";
+import { sfx } from "@/lib/sfx";
 
 const ROOM_RE = /^[A-Z0-9]{6}$/;
 
@@ -54,6 +55,7 @@ export default function Home() {
 
   function createRoom() {
     if (!validateCreate()) return;
+    sfx.good();
     if (!confirmCreate) {
       setConfirmCreate(true);
       return;
@@ -80,6 +82,7 @@ export default function Home() {
 
   function joinRoom() {
     if (!validateJoin()) return;
+    sfx.good();
     router.push(
       `/room/${roomCode.toUpperCase()}?name=${encodeURIComponent(cleanName)}`,
     );
@@ -89,17 +92,23 @@ export default function Home() {
     if (e.key === "Enter") {
       e.preventDefault();
       roomCode ? joinRoom() : createRoom();
+      return;
     }
+    sfx.type();
   }
 
   return (
     <main className="flex items-center justify-center w-full h-screen p-2 overflow-hidden md:p-4">
       <Monitor>
         {/* OS BACKGROUND - Default to Day/Teal Theme */}
-        <div className="w-full h-full bg-[var(--win-teal)] p-4 md:p-8 overflow-y-auto font-retro text-lg flex flex-col">
+        <div className="relative w-full h-full os-desktop p-4 md:p-8 overflow-y-auto font-retro text-lg flex flex-col">
+          <div className="crt-scanlines95" />
           {/* -- VIEW 1: BOOT SEQUENCE -- */}
           {bootStep < 3 ? (
-            <div className="space-y-2 text-xl text-white font-retro">
+            <div
+              className="relative space-y-5 text-white font-pixel text-[13px] pt-6 pl-2"
+              style={{ textShadow: "0 0 6px rgba(255,255,255,0.35)" }}
+            >
               <p>&gt; BIOS DATE 01/01/1999 14:22:51 VER 1.02</p>
               <p>&gt; CPU: INTEL 486 DX2-66 ... OK</p>
               {bootStep >= 1 && <p>&gt; CHECKING MEMORY ... 640K OK</p>}
@@ -108,7 +117,7 @@ export default function Home() {
             </div>
           ) : (
             /* -- VIEW 2: LOGIN FORM -- */
-            <div className="flex flex-col h-full duration-300 animate-in fade-in">
+            <div className="relative flex flex-col h-full duration-300 animate-in fade-in">
               {/* OS TOP BAR */}
               <div className="flex justify-between pb-2 mb-6 text-white border-b-2 select-none border-white/50">
                 <span>OFFICE_OS_V1.0</span>
@@ -117,15 +126,13 @@ export default function Home() {
 
               <div className="flex flex-col items-center justify-center flex-1">
                 {/* LOGIN WINDOW */}
-                <div className="w-full max-w-md p-1 retro-window">
-                  <div className="mb-1 retro-title-bar">
+                <div className="w-full max-w-md w95">
+                  <div className="w95-title">
                     <span>LOGIN.EXE</span>
-                    <span className="text-[8px] cursor-pointer hover:text-red-300">
-                      X
-                    </span>
+                    <span className="w95-ctl">x</span>
                   </div>
 
-                  <div className="bg-[#d1d1c4] p-6 space-y-6">
+                  <div className="bg-[#c6c6c6] p-6 space-y-6">
                     {/* FORM: NAME */}
                     <div className="space-y-1">
                       <label className="font-pixel text-[10px] text-black uppercase">
@@ -176,7 +183,7 @@ export default function Home() {
                         <button
                           onClick={joinRoom}
                           disabled={!nameValid || !roomValid}
-                          className="px-4 py-2 text-white bg-blue-800 retro-btn disabled:opacity-50 hover:bg-blue-700 active:translate-y-1"
+                          className="px-4 py-2 btn95"
                         >
                           PUNCH
                           <br />
@@ -202,7 +209,7 @@ export default function Home() {
                         <button
                           onClick={createRoom}
                           disabled={!nameValid || creating}
-                          className="w-full py-3 transition-colors retro-btn hover:bg-white active:translate-y-1"
+                          className="w-full py-3 btn95"
                         >
                           {creating ? "CONNECTING..." : "OPEN NEW BRANCH"}
                         </button>
@@ -211,13 +218,13 @@ export default function Home() {
                           <button
                             onClick={createRoom}
                             disabled={creating}
-                            className="w-full py-3 font-bold text-white bg-green-800 retro-btn hover:bg-green-700 active:translate-y-1"
+                            className="w-full py-3 btn95 !bg-green-800 !text-white !border-t-green-600 !border-l-green-600 !border-b-green-950 !border-r-green-950 hover:!bg-green-700"
                           >
                             {creating ? "CONNECTING..." : "CONFIRM NEW BRANCH?"}
                           </button>
                           <button
                             onClick={() => setConfirmCreate(false)}
-                            className="w-full py-2 text-sm retro-btn hover:bg-gray-200 active:translate-y-1"
+                            className="w-full py-2 btn95"
                           >
                             CANCEL
                           </button>

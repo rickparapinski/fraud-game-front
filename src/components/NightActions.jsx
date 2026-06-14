@@ -1,7 +1,8 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Skull, Search, ShieldCheck, Check, X } from "lucide-react";
 import { ACTION_TYPES, ROLES } from "@/lib/constants";
+import { sfx } from "@/lib/sfx";
 
 // --- SUB-COMPONENT: The Accountant's Ledger (Mini-Game) ---
 function AccountantLedger({ onAct }) {
@@ -35,10 +36,12 @@ function AccountantLedger({ onAct }) {
     const isSuccess = problem.isCorrect === userApproved;
 
     if (isSuccess) {
+      sfx.click();
       setScore((s) => s + 1);
       setFlash("bg-green-200");
       onAct(ACTION_TYPES.WORK_TASK, null);
     } else {
+      sfx.alert();
       setFlash("bg-red-200");
       setScore(0);
       setPenalty(true);
@@ -52,29 +55,29 @@ function AccountantLedger({ onAct }) {
 
   return (
     <div
-      className={`p-4 border-2 border-gray-600 bg-[#e0e0d1] text-black shadow-inner transition-colors duration-200 ${flash}`}
+      className={`text-black transition-colors duration-200 ${flash} ${penalty ? "inv-shake95" : ""}`}
     >
       {/* Header */}
-      <div className="flex items-end justify-between pb-2 mb-3 border-b border-gray-500">
-        <span className="text-xs font-bold text-gray-600 uppercase">
+      <div className="flex items-end justify-between pb-2 mb-2">
+        <span className="font-pixel text-[8px] text-gray-600 uppercase">
           INVOICE_VERIFICATION.EXE
         </span>
-        <span className="font-mono text-sm font-bold text-blue-900">
+        <span className="font-pixel text-[8px] font-bold text-blue-900">
           PROCESSED: {score}
         </span>
       </div>
 
       {/* Penalty banner */}
       {penalty && (
-        <div className="mb-3 p-1 bg-red-800 text-white text-center text-[11px] font-bold tracking-widest animate-blink">
+        <div className="mb-2 p-1 bg-red-800 text-white text-center font-pixel text-[9px] tracking-widest animate-blink">
           ⚠ AUDIT ERROR — QUOTA RESET
         </div>
       )}
 
       {/* Invoice */}
       {problem && (
-        <div className="mb-4 bg-white border border-gray-300 shadow-sm font-mono text-sm text-black">
-          <div className="text-center text-gray-400 text-[10px] uppercase tracking-widest py-2 border-b border-gray-200">
+        <div className="mb-3 bg-white border border-gray-300 font-retro text-lg text-black">
+          <div className="text-center text-gray-400 font-pixel text-[8px] uppercase tracking-[3px] py-2 border-b border-gray-200">
             INVOICE #{problem.invoiceNum}
           </div>
           <div className="px-4 py-3 space-y-1">
@@ -90,33 +93,25 @@ function AccountantLedger({ onAct }) {
               <span>Discount Applied</span>
               <span className="font-bold">-${problem.c}</span>
             </div>
-            <div className="border-t border-dashed border-gray-400 pt-2 flex justify-between font-bold text-base">
+            <div className="border-t-2 border-dashed border-gray-300 pt-2 flex justify-between font-pixel text-[10px]">
               <span>TOTAL DUE</span>
-              <span className="underline decoration-dotted decoration-gray-400">
-                ${problem.displayTotal}
-              </span>
+              <span>${problem.displayTotal}</span>
             </div>
           </div>
         </div>
       )}
 
       {/* Controls */}
-      <div className="grid grid-cols-2 gap-4">
-        <button
-          onClick={() => handleAnswer(false)}
-          className="flex items-center justify-center gap-2 py-3 font-bold text-red-900 bg-red-100 border-2 border-red-800 shadow-sm hover:bg-red-200 active:translate-y-1"
-        >
-          <X className="w-5 h-5" /> REJECT
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={() => handleAnswer(false)} className="inv-btn95 inv-reject95">
+          <X className="w-4 h-4" /> REJECT
         </button>
-        <button
-          onClick={() => handleAnswer(true)}
-          className="flex items-center justify-center gap-2 py-3 font-bold text-green-900 bg-green-100 border-2 border-green-800 shadow-sm hover:bg-green-200 active:translate-y-1"
-        >
-          <Check className="w-5 h-5" /> APPROVE
+        <button onClick={() => handleAnswer(true)} className="inv-btn95 inv-approve95">
+          <Check className="w-4 h-4" /> APPROVE
         </button>
       </div>
 
-      <p className="mt-4 text-xs text-center text-gray-700 font-bold border-t border-gray-300 pt-2">
+      <p className="mt-3 text-base text-center text-gray-600 font-retro">
         * Errors reset your entire audit quota. Precision required.
       </p>
     </div>
@@ -188,23 +183,10 @@ function FraudVoteBoard({ me, players, fraudVotes, teammates }) {
 }
 
 // --- MAIN COMPONENT ---
+// Night targets are now filed directly on the STAFF_DIR.EXE cards; this panel
+// shows the briefing, role-specific intel, and the fraud team vote board.
 export default function NightActions({ me, players, onAct, fraudTally, fraudVotes, auditHistory, protectHistory, teammates }) {
-  const [targetId, setTargetId] = useState("");
-  const [pending, setPending] = useState(false);
-  const [submittedFor, setSubmittedFor] = useState(null);
   const isFraudster = me.role === ROLES.FRAUDSTER;
-
-  // All hooks must run before any conditional return
-  const aliveOthers = useMemo(
-    () => players.filter((p) => p.isActive && p.id !== me.id),
-    [players, me.id],
-  );
-
-  // Keep fraudster dropdown in sync with their server-confirmed vote
-  const myFiledVoteId = isFraudster ? fraudVotes?.find((v) => v.voterId === me.id)?.targetId : null;
-  useEffect(() => {
-    if (myFiledVoteId) setTargetId(myFiledVoteId);
-  }, [myFiledVoteId]);
 
   if (me.role === ROLES.ACCOUNTANT) {
     return <AccountantLedger onAct={onAct} />;
@@ -214,17 +196,17 @@ export default function NightActions({ me, players, onAct, fraudTally, fraudVote
     fraudster: {
       label: "ELIMINATION_TARGET",
       Icon: Skull,
-      btnText: "CONFIRM TARGET",
+      hint: "Pick an employee in STAFF_DIR.EXE to shred their contract. You can change the target until sunrise.",
     },
     auditor: {
       label: "AUDIT_SUBJECT",
       Icon: Search,
-      btnText: "REQUEST RECORDS",
+      hint: "Pick an employee in STAFF_DIR.EXE to pull their books. One audit per night.",
     },
     controller: {
       label: "ASSET_PROTECTION",
       Icon: ShieldCheck,
-      btnText: "ASSIGN GUARD",
+      hint: "Pick an employee in STAFF_DIR.EXE to protect tonight. One guard per night.",
     },
   };
 
@@ -233,92 +215,30 @@ export default function NightActions({ me, players, onAct, fraudTally, fraudVote
 
   if (!config) return <div className="text-xs">NO ACTIONS</div>;
 
-  const myFiledVote = myFiledVoteId ? fraudVotes?.find((v) => v.voterId === me.id) : null;
-
-  const submit = async () => {
-    if (!targetId || pending) return;
-    setPending(true);
-
-    const actionType = isFraudster
-      ? ACTION_TYPES.FRAUD_TARGET
-      : me.role === ROLES.AUDITOR
-        ? ACTION_TYPES.AUDIT_CHECK
-        : ACTION_TYPES.PROTECT;
-
-    try {
-      await onAct(actionType, targetId);
-      if (!isFraudster) {
-        const p = players.find((x) => x.id === targetId);
-        setSubmittedFor(p?.name || "Unknown");
-      }
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const isLocked = !isFraudster && (pending || !!submittedFor);
+  const myFiledVote = isFraudster
+    ? fraudVotes?.find((v) => v.voterId === me.id)
+    : null;
 
   return (
-    <div className="font-mono text-sm">
+    <div className="font-retro text-lg">
       {/* HEADER */}
-      <div className="flex items-center gap-2 pb-1 mb-3 border-b border-gray-400">
+      <div className="flex items-center gap-2 pb-1 mb-2 border-b border-gray-400">
         {Icon && <Icon className="w-4 h-4 text-black" />}
-        <span className="font-bold text-black uppercase">{config.label}</span>
+        <span className="font-pixel text-[8px] text-black uppercase">{config.label}</span>
       </div>
 
-      {/* FORM */}
-      <div className="space-y-3">
-        <div>
-          <label className="block text-[10px] uppercase font-bold text-gray-600 mb-1">
-            Select Employee:
-          </label>
-          <select
-            className="w-full p-1 text-lg text-black bg-white border-2 border-gray-600 font-retro focus:outline-none focus:bg-yellow-50"
-            value={targetId}
-            onChange={(e) => setTargetId(e.target.value)}
-            disabled={isLocked}
-          >
-            <option value="">-- SELECT --</option>
-            {aliveOthers.map((p) => {
-              const audited = me.role === "auditor" && auditHistory?.[p.sessionId];
-              const protected_ = me.role === "controller" && protectHistory?.[p.sessionId];
-              return (
-                <option key={p.id} value={p.id}>
-                  {p.name}{audited ? " [audited]" : ""}{protected_ ? ` [guarded ×${protected_.count}]` : ""}
-                </option>
-              );
-            })}
-          </select>
-        </div>
+      <p className="text-gray-700 leading-tight">► {config.hint}</p>
 
-        <button
-          onClick={submit}
-          disabled={pending || !targetId || isLocked}
-          className="w-full py-2 text-xs font-bold bg-gray-300 border-2 border-black retro-btn hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {pending
-            ? "PROCESSING..."
-            : isFraudster && myFiledVote
-              ? "UPDATE VOTE"
-              : submittedFor
-                ? "ACTION FILED"
-                : config.btnText}
-        </button>
-      </div>
-
-      {/* FEEDBACK / VOTE BOARD */}
-      {me.role === "auditor" && (
-        <div className="pt-2 mt-3 border-t border-gray-400 border-dashed">
-          <p className="text-[10px] text-gray-600 italic">
-            * Report will be generated at 09:00 AM.
-          </p>
+      {isFraudster && myFiledVote && (
+        <div className="inline-block px-2 py-1 mt-2 text-base font-bold text-red-700 transform border-2 border-red-700 -rotate-2 opacity-80">
+          TARGET LOCKED: {myFiledVote.targetName}
         </div>
       )}
 
-      {!isFraudster && submittedFor && (
-        <div className="inline-block px-2 py-1 mt-3 text-xs font-bold text-green-700 transform border-2 border-green-700 -rotate-2 opacity-80">
-          [✓] FILED: {submittedFor}
-        </div>
+      {me.role === "auditor" && (
+        <p className="mt-2 text-base text-gray-600 italic">
+          * Report will be generated at 09:00 AM.
+        </p>
       )}
 
       {isFraudster && (

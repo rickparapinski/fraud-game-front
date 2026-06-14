@@ -1,4 +1,5 @@
 "use client";
+import { sfx } from "@/lib/sfx";
 
 export default function HostControls({
   isHost,
@@ -9,30 +10,31 @@ export default function HostControls({
   onRestart,
 }) {
   return (
-    <div className="p-1 retro-window">
-      {/* Red Title Bar for "Admin/Host" feel */}
-      <div className="mb-1 text-white bg-red-900 retro-title-bar">
+    <div className="w95">
+      <div className="w95-title">
         <span>MANAGER_OVERRIDE.EXE</span>
-        <span className="text-[8px]">X</span>
+        <span className="w95-ctl">x</span>
       </div>
 
-      <div className="bg-[#d1d1c4] p-3 flex flex-col gap-2">
+      <div className="p-3 flex flex-col gap-2">
         {!isHost ? (
-          <div className="py-2 font-mono text-xs italic text-center text-gray-500 bg-gray-100 border border-gray-400 border-dashed">
-            ⚠ AUTHENTICATION REQUIRED:
+          <div className="override-note py-2">
+            ⚠ MANAGER CLEARANCE REQUIRED
             <br />
-            HOST ACCESS ONLY
+            — host controls the floor —
           </div>
         ) : (
           <>
-            <div className="text-black text-[10px] font-bold uppercase mb-1 border-b border-gray-400 pb-1">
-              Phase Controls
-            </div>
+            <div className="override-label">Phase Controls</div>
+            <div className="override-sep" />
 
             {phase === "lobby" && (
               <button
-                onClick={onStartGame}
-                className="w-full py-3 text-xs font-bold bg-white border-2 border-black retro-btn hover:bg-green-100 active:translate-y-1"
+                onClick={() => {
+                  sfx.good();
+                  onStartGame();
+                }}
+                className="btn95 override-btn"
               >
                 START AUDIT SEQUENCE
               </button>
@@ -40,8 +42,11 @@ export default function HostControls({
 
             {(phase === "day" || phase === "night") && (
               <button
-                onClick={onBeginNight}
-                className="w-full py-3 text-xs font-bold bg-white border-2 border-black retro-btn hover:bg-blue-100 active:translate-y-1"
+                onClick={() => {
+                  sfx.click();
+                  onBeginNight();
+                }}
+                className="btn95 override-btn"
               >
                 {phase === "day" ? "INITIATE NIGHT SHIFT" : "FORCE PHASE END"}
               </button>
@@ -50,7 +55,7 @@ export default function HostControls({
             {gameOver && (
               <button
                 onClick={onRestart}
-                className="w-full py-3 text-xs font-bold text-red-900 bg-red-100 border-2 border-black retro-btn hover:bg-red-200 active:translate-y-1"
+                className="btn95 override-btn !text-red-900"
               >
                 REBOOT SYSTEM
               </button>
@@ -60,7 +65,7 @@ export default function HostControls({
               phase !== "lobby" &&
               phase !== "day" &&
               phase !== "night" && (
-                <div className="py-2 text-xs text-center text-gray-500">
+                <div className="override-note py-2">
                   WAITING FOR SUB-ROUTINES...
                 </div>
               )}

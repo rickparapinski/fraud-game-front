@@ -112,32 +112,32 @@ body {
 
 /* --- MONITOR COMPONENT CLASSES --- */
 
-/* The Beige Plastic Case */
+/* The CRT bezel — teal hardware, like the v2 reference */
 .monitor-casing {
-  background-color: var(--monitor-case);
-  box-shadow: inset 10px 10px 30px rgba(0, 0, 0, 0.1),
-    15px 15px 30px rgba(0, 0, 0, 0.5),
-    inset -5px -5px 10px rgba(255, 255, 255, 0.4);
-  border-radius: 20px;
+  background-color: transparent;
+  border-radius: 14px;
 }
 
 /* The Glowing Glass Screen */
 .screen-glass {
-  background-color: #111;
-  border-radius: 20px;
-  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.8);
+  background-color: #0d8181;
+  border: 3px solid #07504f;
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 2px #15a3a0,
+    0 14px 30px rgba(0, 0, 0, 0.55);
   animation: turn-on 0.3s ease-out forwards;
   overflow: hidden;
   position: relative;
 }
 
-/* Vignette Glow */
+/* Vignette Glow — subtle glass curvature, must not muddy the desktop */
 .crt-glow {
   background: radial-gradient(
-    circle,
-    rgba(0, 0, 0, 0) 60%,
-    rgba(0, 0, 0, 0.4) 90%,
-    rgba(0, 0, 0, 0.8) 100%
+    ellipse at center,
+    rgba(0, 0, 0, 0) 78%,
+    rgba(0, 0, 0, 0.12) 94%,
+    rgba(0, 0, 0, 0.25) 100%
   );
   pointer-events: none;
   position: absolute;
@@ -205,3 +205,440 @@ body {
   border-color: #888;
   cursor: not-allowed;
 }
+
+/* ==========================================================================
+   OFFICE_OS v2 SKIN — additive classes only (UI reskin, no logic changes)
+   ========================================================================== */
+
+/* ---- shared Win95 button ---- */
+.btn95 {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  padding: 8px 10px;
+  background: #c6c6c6;
+  color: #111;
+  border: 2px solid;
+  border-color: #ffffff #2b2b2b #2b2b2b #ffffff;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.btn95:hover:not(:disabled) { background: #d6d6d6; }
+.btn95:active:not(:disabled),
+.btn95.pressed {
+  border-color: #2b2b2b #ffffff #ffffff #2b2b2b;
+  background: #b8b8b8;
+}
+.btn95:disabled { color: #8a8a8a; text-shadow: 1px 1px 0 #fff; cursor: default; }
+
+/* ---- OS desktop (inside the glass) ---- */
+/* radial variant: boot + login screens only */
+.os-desktop {
+  background: radial-gradient(ellipse at center, #0a9696 0%, #0d8181 45%, #075c5c 100%);
+}
+/* flat variant: in-game desktop, matches the v2 monitor surface */
+.os-desktop-flat {
+  background: #0d8181;
+}
+
+/* CRT line texture on the desktop only — windows render above it */
+.crt-scanlines95 {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.08) 0px,
+    rgba(0, 0, 0, 0.08) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  mix-blend-mode: multiply;
+}
+
+/* ---- v2 window chrome (refined .retro-window) ---- */
+.w95 {
+  background: #c6c6c6;
+  border: 2px solid;
+  border-color: #ffffff #2b2b2b #2b2b2b #ffffff;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.35);
+}
+.w95-title {
+  background: #0000a8;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+.w95-ctl {
+  width: 16px;
+  height: 14px;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  line-height: 1;
+  color: #111;
+  background: #c6c6c6;
+  border: 1px solid;
+  border-color: #ffffff #2b2b2b #2b2b2b #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.w95-ctl:active { border-color: #2b2b2b #ffffff #ffffff #2b2b2b; }
+
+/* ---- top status bar widgets ---- */
+.dept-plate {
+  background: #c6c6c6;
+  border: 2px solid;
+  border-color: #ffffff #2b2b2b #2b2b2b #ffffff;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #333;
+  cursor: pointer;
+}
+.dept-plate:active { border-color: #2b2b2b #ffffff #ffffff #2b2b2b; }
+.dept-code { color: #000; letter-spacing: 2px; }
+
+.phase-tabs {
+  background: #10243c;
+  border: 2px solid;
+  border-color: #061322 #2c4a6e #2c4a6e #061322;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 0 14px;
+}
+.phase-tab {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: #5d7894;
+  letter-spacing: 2px;
+  padding: 4px 8px;
+}
+.phase-tab.active { background: #19e05f; color: #06250f; }
+
+.clock95 {
+  background: #111;
+  border: 2px solid;
+  border-color: #000 #444 #444 #000;
+  color: #ff4242;
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  min-width: 86px;
+  justify-content: center;
+}
+
+/* ---- CONFIDENTIAL memo ---- */
+.memo {
+  background: #f1efe6;
+  border: 1px solid #999;
+  padding: 12px 14px;
+  position: relative;
+}
+.memo::before, .memo::after {
+  content: '●';
+  position: absolute;
+  top: 6px;
+  color: #b5b2a4;
+  font-size: 9px;
+}
+.memo::before { left: 8px; }
+.memo::after { right: 8px; }
+.memo-head { display: flex; justify-content: space-between; align-items: baseline; }
+.memo-confidential {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: #9a9688;
+  letter-spacing: 3px;
+}
+.memo-ref { font-family: var(--font-pixel); font-size: 7px; color: #8b887b; }
+.memo-divider { border-top: 2px dashed #c9c5b4; margin: 10px 0; }
+.memo-label { font-family: var(--font-pixel); font-size: 7px; color: #777; margin-right: 8px; }
+.memo-role {
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  color: #1a3da8;
+  background: #dde7fa;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+.memo-brief { font-family: var(--font-retro); font-size: 18px; line-height: 1.15; color: #2c2a24; }
+.memo-partners { font-family: var(--font-retro); font-size: 18px; color: #a4161a; font-weight: bold; }
+
+/* ---- action panel ---- */
+.action-panel {
+  background: #e8e6db;
+  border: 2px solid;
+  border-color: #2b2b2b #ffffff #ffffff #2b2b2b;
+  padding: 8px 10px;
+}
+.action-title {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: #666;
+  border-bottom: 1px solid #bbb;
+  padding-bottom: 5px;
+  margin-bottom: 7px;
+  text-transform: uppercase;
+}
+.denied-banner {
+  background: #000;
+  border: 2px solid #e5383b;
+  color: #e5383b;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  text-align: center;
+  padding: 14px;
+  letter-spacing: 1px;
+  animation: blink 1.2s step-end infinite;
+}
+
+/* ---- terminal (SECURITY_LOG) ---- */
+.terminal95 {
+  background: #000;
+  font-family: var(--font-retro);
+  font-size: 18px;
+  line-height: 1.25;
+  padding: 10px 12px;
+}
+.term-ts { color: #b8b84d; }
+.term-arrow { color: #777; }
+.term-boot { color: #1d6b35; }
+.term-cursor95 { color: #2da44e; animation: blink 1s step-end infinite; }
+
+.scroll95::-webkit-scrollbar { width: 14px; }
+.scroll95::-webkit-scrollbar-track {
+  background: repeating-conic-gradient(#d4d4d4 0% 25%, #eaeaea 0% 50%) 0 0 / 4px 4px;
+}
+.scroll95::-webkit-scrollbar-thumb {
+  background: #c6c6c6;
+  border: 2px solid;
+  border-color: #ffffff #2b2b2b #2b2b2b #ffffff;
+}
+
+/* ---- staff directory ---- */
+.staff-list95 {
+  background: #fff;
+  border: 2px solid;
+  border-color: #2b2b2b #ffffff #ffffff #2b2b2b;
+  padding: 5px;
+}
+.staff-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(to bottom, #e8f1fc, #cfe0f5);
+  border: 1px solid #9db8d9;
+  padding: 5px 7px;
+}
+.staff-dead {
+  background: #e3e3e3;
+  border-color: #bbb;
+  filter: grayscale(1);
+  opacity: 0.65;
+}
+.staff-avatar {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: #fff;
+  background: #4f86d9;
+  border: 2px solid;
+  border-color: #7fa9e8 #2c5aa8 #2c5aa8 #7fa9e8;
+  text-transform: uppercase;
+}
+.staff-avatar.is-me { background: #d97f2b; border-color: #eda85f #a85a18 #a85a18 #eda85f; }
+.staff-name {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: #1a2c4a;
+  white-space: nowrap;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.you-chip {
+  background: #d97f2b;
+  color: #fff;
+  font-size: 6px;
+  padding: 1px 3px;
+}
+.staff-status { font-family: var(--font-pixel); font-size: 6px; margin-top: 3px; }
+.st-active { color: #1d8b46; }
+.st-dead { color: #a4161a; }
+.badge95 {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  padding: 2px 4px;
+  border: 1px solid;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.badge-guarded { color: #1a3da8; border-color: #1a3da8; background: #dde7fa; }
+.badge-clean { color: #1d6b35; border-color: #1d6b35; background: #e2f2e6; }
+.badge-fraud { color: #a4161a; border-color: #a4161a; background: #fbe2e3; }
+.staff-footer95 {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: #444;
+  padding: 4px 2px 2px;
+}
+
+/* ---- manager override ---- */
+.override-label {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: #555;
+  text-transform: uppercase;
+}
+.override-sep { border-top: 1px solid #999; margin: 4px 0; }
+.override-btn { width: 100%; padding: 12px 8px; }
+.override-note {
+  font-family: var(--font-retro);
+  font-size: 16px;
+  color: #666;
+  text-align: center;
+  line-height: 1.1;
+}
+
+/* ---- dev tools ---- */
+.dev-label { font-family: var(--font-pixel); font-size: 7px; color: #ccc; text-transform: uppercase; }
+.dev-select95 {
+  font-family: var(--font-retro);
+  font-size: 18px;
+  background: #111;
+  color: #19e05f;
+  border: 2px solid;
+  border-color: #000 #444 #444 #000;
+  padding: 4px;
+  width: 100%;
+}
+.dev-apply95 {
+  width: 100%;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  background: #06250f;
+  color: #19e05f;
+  border: 1px solid #19e05f;
+  padding: 6px;
+  cursor: pointer;
+  letter-spacing: 2px;
+}
+.dev-apply95:hover { background: #0a3d1f; }
+
+/* ---- invoice minigame ---- */
+@keyframes shake95 {
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+}
+.inv-shake95 { animation: shake95 0.3s; }
+
+.inv-btn95 {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  padding: 13px 6px;
+  cursor: pointer;
+  border: 2px solid;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.inv-reject95 { background: #fbe3e3; border-color: #c0392b; color: #c0392b; }
+.inv-reject95:hover { background: #f7cdcd; }
+.inv-approve95 { background: #e3f5e8; border-color: #2d7d46; color: #2d7d46; }
+.inv-approve95:hover { background: #cdeed8; }
+
+/* ---- select / inputs (v2) ---- */
+.select95 {
+  font-family: var(--font-retro);
+  font-size: 18px;
+  color: #000;
+  background: #fff;
+  border: 2px solid;
+  border-color: #2b2b2b #ffffff #ffffff #2b2b2b;
+  padding: 4px 6px;
+  width: 100%;
+}
+.select95:focus { outline: none; background: #fffff0; }
+
+/* ---- incident report (game over) ---- */
+.report-overlay95 {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 10, 20, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.report-window95 {
+  width: min(640px, 94%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  animation: report-dropin 0.4s ease;
+}
+@keyframes report-dropin {
+  from { transform: translateY(-40px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.report-banner95 {
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  text-align: center;
+  padding: 14px 10px;
+  letter-spacing: 1px;
+}
+.banner-clean95 { background: #0a3d1f; color: #38e07a; border: 2px solid #38e07a; }
+.banner-fraud95 { background: #3d0a0a; color: #ff5050; border: 2px solid #ff5050; }
+.report-reason95 {
+  font-family: var(--font-retro);
+  font-size: 17px;
+  text-align: center;
+  color: #444;
+  padding: 6px 4px;
+}
+.report-roster95 {
+  background: #f1efe6;
+  border: 1px solid #999;
+  padding: 10px 14px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.report-row95 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-retro);
+  font-size: 18px;
+  padding: 2px 0;
+  color: #222;
+}
+.report-dots95 { flex: 1; border-bottom: 2px dotted #b5b2a4; }
+.report-role95 { font-family: var(--font-pixel); font-size: 8px; text-transform: uppercase; }
+.report-fate95 { font-family: var(--font-pixel); font-size: 7px; width: 86px; text-align: right; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useGameLogic } from "@/hooks/useGameLogic";
 
@@ -16,6 +16,7 @@ import RetroPhaseSummary from "@/components/ui/RetroPhaseSummary";
 import AudioController from "@/components/AudioController";
 import CityBackground from "@/components/CityBackground";
 import PlayerRoster from "@/components/PlayerRoster";
+import { sfx } from "@/lib/sfx";
 
 const ALLOW_BOTS = process.env.NEXT_PUBLIC_ALLOW_BOTS === "true";
 const DEV_CONTROLS = process.env.NEXT_PUBLIC_DEV_CONTROLS === "true";
@@ -93,6 +94,75 @@ export default function RoomPage() {
   }, [game.deadline, game.offsetMs]);
   const timerUrgent = msLeft > 0 && msLeft <= 10000;
 
+  // -- Local flavor log lines (client-side only, merged into SECURITY_LOG) --
+  const [localLines, setLocalLines] = useState([]);
+  const localIdRef = useRef(0);
+  const addLine = useCallback((text, type = "flavor") => {
+    setLocalLines((ls) => [
+      ...ls,
+      { id: `local-${++localIdRef.current}`, ts: Date.now(), type, text },
+    ]);
+  }, []);
+
+  // "X punched in. (badge printed)" — every roster addition (players and bots)
+  const prevIdsRef = useRef(null);
+  useEffect(() => {
+    if (!game.players.length) return;
+    const ids = new Set(game.players.map((p) => p.sessionId || p.id));
+    if (prevIdsRef.current === null) {
+      // first snapshot: announce yourself only, not the whole existing roster
+      prevIdsRef.current = ids;
+      addLine(`${name} punched in. (badge printed)`, "system");
+      return;
+    }
+    for (const p of game.players) {
+      if (!prevIdsRef.current.has(p.sessionId || p.id)) {
+        addLine(`${p.name} punched in. (badge printed)`, "system");
+      }
+    }
+    prevIdsRef.current = ids;
+  }, [game.players, addLine, name]);
+
+  // Phase-change jingles + flavor lines + game-over sting (no game logic)
+  const prevPhaseRef = useRef(null);
+  useEffect(() => {
+    if (prevPhaseRef.current && prevPhaseRef.current !== game.phase) {
+      const nightsResolved = (game.logs || []).filter(
+        (l) => l.type === "night-results",
+      ).length;
+      if (game.phase === "night") {
+        if (prevPhaseRef.current === "lobby") {
+          addLine(
+            `AUDIT SEQUENCE INITIATED. ${game.players.length} employees on the books.`,
+            "system",
+          );
+        }
+        addLine(`Night ${nightsResolved + 1}: lights out. Lock your drawers.`);
+        sfx.night();
+      } else if (game.phase === "day") {
+        addLine(
+          `Day ${Math.max(1, nightsResolved)}: discussion open. Majority vote terminates one employee.`,
+        );
+        sfx.day();
+      }
+    }
+    prevPhaseRef.current = game.phase;
+  }, [game.phase, game.logs, game.players.length, addLine]);
+
+  // backend logs + local flavor lines, in chronological order
+  const mergedLogs = useMemo(
+    () =>
+      [...(game.logs || []), ...localLines].sort(
+        (a, b) => new Date(a.ts || 0) - new Date(b.ts || 0),
+      ),
+    [game.logs, localLines],
+  );
+  useEffect(() => {
+    if (game.gameOver) {
+      (game.gameOver.winner === "fraudsters" ? sfx.alert : sfx.good)();
+    }
+  }, [game.gameOver]);
+
   const phaseLabel =
     game.phase === "lobby"
       ? "LOBBY"
@@ -119,7 +189,10 @@ export default function RoomPage() {
       <CityBackground phase={game.phase} />
 
       <Monitor>
-        <div className="relative w-full h-full flex flex-col overflow-hidden font-retro bg-[var(--win-teal)]">
+        <div className="relative w-full h-full flex flex-col overflow-hidden font-retro os-desktop-flat">
+          {/* CRT line texture — sits on the teal desktop, behind every window */}
+          <div className="crt-scanlines95" />
+
           {/* === GAME OVER OVERLAY (Inside Monitor) === */}
           {game.gameOver && (
             <RetroGameOver
@@ -132,15 +205,15 @@ export default function RoomPage() {
           )}
 
           {/* === 1. TOP STATUS BAR === */}
-          <div className="bg-[#c0c0c0] border-b-2 border-white flex justify-between items-center px-2 py-1 text-black select-none shadow-md z-20">
+          <div className="flex justify-between items-stretch gap-2 px-2 pt-2 text-black select-none z-20">
             {/* Left: Dept ID (Now Clickable) */}
             <button
               onClick={handleCopyCode}
               title="Click to copy room code"
-              className="flex items-center gap-2 px-2 transition-colors bg-gray-200 border-2 border-gray-600 border-b-white border-r-white hover:bg-white active:border-t-gray-600 active:border-l-gray-600 active:border-b-white active:border-r-white group"
+              className="dept-plate group"
             >
-              <span className="hidden font-bold sm:inline">DEPT:</span>
-              <span className="text-xl tracking-widest font-retro">
+              <span className="hidden sm:inline">DEPT:</span>
+              <span className="dept-code">
                 {copied ? "COPIED!" : roomCode}
               </span>
               {!copied && (
@@ -151,15 +224,11 @@ export default function RoomPage() {
             </button>
 
             {/* Center: Phase LEDs */}
-            <div className="flex gap-1 p-1 bg-gray-800 border border-white rounded border-b-gray-600 border-r-gray-600">
+            <div className="flex-1 phase-tabs">
               {["LOBBY", "NIGHT", "DAY", "COMPLETE"].map((p) => (
                 <div
                   key={p}
-                  className={`px-2 text-xs font-pixel py-1 ${
-                    phaseLabel === p
-                      ? "bg-green-500 text-black animate-pulse"
-                      : "text-gray-500"
-                  }`}
+                  className={`phase-tab ${phaseLabel === p ? "active" : ""}`}
                 >
                   {p}
                 </div>
@@ -169,13 +238,13 @@ export default function RoomPage() {
             <div className="flex items-center h-full gap-2">
               <AudioController phase={game.phase} />
               <div
-                className="w-20 px-2 font-mono text-xl text-center bg-black border-2 border-gray-600 border-b-white border-r-white"
+                className="clock95"
                 style={timerUrgent ? {
                   color: "#ff4444",
                   borderColor: "#ff4444",
                   animation: "timer-urgent-pulse 0.6s ease-in-out infinite alternate",
                   textShadow: "0 0 8px #ff4444",
-                } : { color: "#ef4444" }}
+                } : undefined}
               >
                 {timeLeft}
               </div>
@@ -218,71 +287,57 @@ export default function RoomPage() {
             <div className="flex flex-col flex-1 min-h-0 gap-4">
               {/* A. CURRENT_TASK.EXE (Redesigned Dossier Style) */}
               {game.phase !== "lobby" && !game.gameOver && (
-                <div className="retro-window flex-shrink-0 flex flex-col max-h-[50vh]">
-                  <div className="bg-blue-900 retro-title-bar">
+                <div className="w95 flex-shrink-0 flex flex-col max-h-[50vh]">
+                  <div className="w95-title">
                     <span>CURRENT_TASK.EXE</span>
                     <div className="flex gap-1">
-                      <span className="text-[8px]">_</span>
-                      <span className="text-[8px]">X</span>
+                      <span className="w95-ctl">_</span>
+                      <span className="w95-ctl">x</span>
                     </div>
                   </div>
 
-                  <div className="bg-[#d1d1c4] p-4 overflow-y-auto flex-1">
+                  <div className="bg-[#c6c6c6] p-2 md:p-3 overflow-y-auto flex-1 scroll95 space-y-2">
                     {/* 1. Role "Paper Form" */}
                     {game.myRole && (
-                      <div className="bg-white border border-gray-400 p-3 shadow-md mb-4 relative transform rotate-[0.5deg]">
-                        <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-[#d1d1c4]"></div>
-                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#d1d1c4]"></div>
+                      <div className="memo">
+                        <div className="memo-head">
+                          <span className="memo-confidential">
+                            C O N F I D E N T I A L
+                          </span>
+                          <span className="memo-ref">REF: {roomCode}-88</span>
+                        </div>
+                        <div className="memo-divider" />
 
-                        <div className="flex items-end justify-between pb-2 mb-2 border-b-2 border-gray-300 border-dashed">
-                          <span className="text-xl tracking-widest text-gray-400 uppercase font-retro">
-                            CONFIDENTIAL
-                          </span>
-                          <span className="font-mono text-[10px] text-gray-500">
-                            REF: {roomCode}-88
-                          </span>
+                        <div className="mb-2">
+                          <span className="memo-label">ASSIGNMENT:</span>
+                          <span className="memo-role">{game.myRole}</span>
                         </div>
 
-                        <div className="grid grid-cols-[80px_1fr] gap-2 items-baseline">
-                          <span className="font-bold text-[10px] uppercase text-gray-600 text-right">
-                            Assignment:
-                          </span>
-                          <span className="px-1 text-sm text-blue-900 uppercase font-pixel bg-blue-50">
-                            {game.myRole}
-                          </span>
-
-                          <span className="font-bold text-[10px] uppercase text-gray-600 text-right">
-                            Brief:
-                          </span>
-                          <span className="font-mono text-xs leading-tight text-gray-800">
-                            {game.roleInfo}
-                          </span>
-
-{game.teammates.length > 0 && (
-                            <>
-                              <span className="font-bold text-[10px] uppercase text-red-600 text-right">
-                                Partners:
-                              </span>
-                              <span className="font-mono text-xs font-bold text-red-800 flex flex-wrap gap-x-1">
-                                {game.teammates.map((t, i) => {
-                                  const alive = game.players.find((p) => p.id === t.id)?.isActive !== false;
-                                  return (
-                                    <span key={t.id} className={alive ? "" : "line-through opacity-50"}>
-                                      {t.name}{i < game.teammates.length - 1 ? "," : ""}
-                                    </span>
-                                  );
-                                })}
-                              </span>
-                            </>
-                          )}
+                        <div className="memo-brief">
+                          <span className="memo-label">BRIEF:</span>
+                          {game.roleInfo}
                         </div>
+
+                        {game.teammates.length > 0 && (
+                          <div className="memo-partners">
+                            <span className="memo-label">PARTNERS:</span>
+                            {game.teammates.map((t, i) => {
+                              const alive = game.players.find((p) => p.id === t.id)?.isActive !== false;
+                              return (
+                                <span key={t.id} className={alive ? "" : "line-through opacity-50"}>
+                                  {t.name}{i < game.teammates.length - 1 ? ", " : ""}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
 
                     {/* 2. Action Area */}
-                    <div className="p-1 bg-gray-200 border-2 border-gray-500">
-                      <div className="border border-gray-400 p-2 bg-[#e0e0d1]">
-                        <div className="font-bold text-[10px] uppercase mb-2 text-gray-600 border-b border-gray-400">
+                    <div className="action-panel">
+                      <div>
+                        <div className="action-title">
                           Action Required
                         </div>
                         <div className="retro-form-wrapper">
@@ -299,7 +354,7 @@ export default function RoomPage() {
                             />
                           )}
                           {game.phase === "day" && (
-                            <div className="mb-2 font-mono text-xs text-gray-600">
+                            <div className="mb-2 font-retro text-lg text-gray-600">
                               Waiting on{" "}
                               {
                                 game.players.filter(
@@ -321,7 +376,7 @@ export default function RoomPage() {
                           )}
                         </div>
                         {!me?.isActive && (
-                          <div className="py-4 font-bold text-center text-red-600 bg-black border border-red-500">
+                          <div className="denied-banner">
                             ⚠ ACCESS DENIED: TERMINATED
                           </div>
                         )}
@@ -332,16 +387,16 @@ export default function RoomPage() {
               )}
 
               {/* B. SECURITY_LOG.TXT (Raw Terminal) */}
-              <div className="flex flex-col flex-1 min-h-0 retro-window">
-                <div className="retro-title-bar">
+              <div className="flex flex-col flex-1 min-h-0 w95">
+                <div className="w95-title">
                   <span>SECURITY_LOG.TXT</span>
                   <div className="flex gap-1">
-                    <span className="cursor-pointer">_</span>
-                    <span className="cursor-pointer">X</span>
+                    <span className="w95-ctl">_</span>
+                    <span className="w95-ctl">x</span>
                   </div>
                 </div>
                 <div className="relative flex-1 min-h-0 bg-black">
-                  <GameLog logs={game.logs} />
+                  <GameLog logs={mergedLogs} />
                 </div>
               </div>
             </div>
@@ -361,35 +416,40 @@ export default function RoomPage() {
               {/* 2. STAFF DIRECTORY */}
               <PlayerRoster
                 players={game.players}
+                me={me}
                 myRole={game.myRole}
                 mySessionId={game.mySessionId}
                 phase={game.phase}
                 votingMap={votingMap}
                 auditHistory={game.auditHistory}
                 protectHistory={game.protectHistory}
+                fraudVotes={game.fraudVotes}
+                hasVotedDay={!!votingMap.get(me.id)}
+                onDayVote={actions.castDayVote}
+                onNightAction={actions.submitNightAction}
               />
 
               {/* 3. DEV TOOLS */}
               {DEV_CONTROLS && (
-                <div className="p-1 retro-window">
+                <div className="w95 !bg-[#3a3a3a]">
                   <button
                     onClick={() => setDevMode(!devMode)}
-                    className="w-full px-2 py-1 font-mono text-xs text-left text-black border border-transparent hover:bg-gray-300 hover:border-gray-400"
+                    className="w95-title w-full text-left !bg-[#1a1a1a] cursor-pointer"
                   >
                     [{devMode ? "-" : "+"}] DEVELOPER_TOOLS
                   </button>
                   {devMode && (
-                    <div className="p-2 mt-1 font-mono text-xs text-green-500 bg-black border-t border-gray-600">
+                    <div className="p-2 space-y-2 font-retro text-base text-green-500">
                       {game.isHost ? (
                         <>
-                          <div className="mb-2">
-                            <label className="block mb-1 text-gray-400">
+                          <div className="space-y-1">
+                            <label className="dev-label block">
                               PICK ROLE:
                             </label>
                             <select
                               value={devRole}
                               onChange={(e) => setDevRole(e.target.value)}
-                              className="w-full p-1 mb-1 text-white bg-gray-800 border border-gray-600"
+                              className="dev-select95"
                             >
                               <option value="">-- Select --</option>
                               <option value="fraudster">Fraudster</option>
@@ -399,24 +459,24 @@ export default function RoomPage() {
                             </select>
                             <button
                               onClick={() => actions.setDevRole(devRole)}
-                              className="w-full text-green-500 border border-green-700 hover:bg-green-900"
+                              className="dev-apply95"
                             >
                               APPLY
                             </button>
                           </div>
                           {ALLOW_BOTS && game.phase === "lobby" && (
-                            <div className="pt-2 border-t border-gray-800">
-                              <label className="block mb-1 text-gray-400">
+                            <div className="pt-2 space-y-1 border-t border-gray-600">
+                              <label className="dev-label block">
                                 BOTS:
                               </label>
-                              <div className="flex gap-1 mb-1">
+                              <div className="flex gap-1">
                                 <input
                                   value={botCount}
                                   onChange={(e) =>
                                     setBotCount(Number(e.target.value))
                                   }
                                   disabled={botsSpawned}
-                                  className="w-10 text-center text-white bg-gray-800 border border-gray-600 disabled:opacity-40"
+                                  className="w-12 text-center dev-select95 !w-12 disabled:opacity-40"
                                 />
                                 <button
                                   onClick={async () => {
@@ -424,7 +484,7 @@ export default function RoomPage() {
                                     setBotsSpawned(true);
                                   }}
                                   disabled={botsSpawned}
-                                  className="flex-1 border border-gray-600 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                  className="flex-1 dev-apply95 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                   {botsSpawned ? "SPAWNED" : "SPAWN"}
                                 </button>
@@ -434,7 +494,7 @@ export default function RoomPage() {
                                   await actions.despawnBots();
                                   setBotsSpawned(false);
                                 }}
-                                className="w-full text-red-500 border border-red-900 hover:bg-red-950"
+                                className="w-full dev-apply95 !text-red-500 !border-red-800 hover:!bg-red-950"
                               >
                                 CLEAR BOTS
                               </button>

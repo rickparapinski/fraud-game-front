@@ -18,16 +18,17 @@ export default function RetroPhaseSummary({
   return (
     <div className="animate-in slide-in-from-top-10 duration-500 relative w-[320px] mx-auto mt-4 font-mono text-sm text-black">
       {/* Paper Styling */}
-      <div className="bg-[#fff0cf] border border-gray-400 p-4 shadow-[5px_5px_15px_rgba(0,0,0,0.5)] rotate-1">
+      <div className="memo !p-4 shadow-[5px_5px_15px_rgba(0,0,0,0.5)] rotate-1">
         {/* Header — day only */}
         {isDay && (
-          <div className="pb-2 mb-3 text-center border-b-2 border-black border-dashed">
-            <h3 className="text-lg font-bold tracking-widest uppercase">
+          <div className="text-center">
+            <h3 className="font-pixel text-[9px] tracking-widest uppercase text-gray-700">
               DAILY_TERMINATION_REPORT
             </h3>
-            <p className="text-[10px] opacity-60">
+            <p className="font-pixel text-[6px] text-gray-400 mt-1">
               CONFIDENTIAL // INTERNAL USE ONLY
             </p>
+            <div className="memo-divider" />
           </div>
         )}
 

@@ -54,11 +54,11 @@ export default function GameLog({ logs = [] }) {
   }
 
   return (
-    <div className="bg-black p-2 md:p-4 h-full font-mono text-sm shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] flex flex-col min-h-0">
+    <div className="terminal95 h-full shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] flex flex-col min-h-0">
       {/* Scrollable Log Area — header is inside so it scrolls off as entries pile up */}
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
-        <ul className="space-y-1 tracking-wider font-retro">
-          <li className="mb-4 text-green-700 opacity-50 select-none leading-relaxed">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto scroll95">
+        <ul className="space-y-1">
+          <li className="mb-4 term-boot select-none leading-relaxed">
             Microsoft(R) Windows 95<br />
             (C)Copyright Microsoft Corp 1981-1996<br />
             <br />
@@ -70,6 +70,8 @@ export default function GameLog({ logs = [] }) {
 
             // Determine color based on log type
             let colorClass = "text-green-400";
+            if (log.type === "flavor") colorClass = "text-green-700";
+            if (log.type === "system") colorClass = "text-green-400";
             if (log.type === "night-results") colorClass = "text-blue-300";
             if (log.type === "day-results") colorClass = "text-yellow-300";
             if (log.type === "game-over") colorClass = "text-purple-300 font-bold";
@@ -89,15 +91,13 @@ export default function GameLog({ logs = [] }) {
 
             return (
               <li key={log.id} className="flex items-start gap-2 leading-tight">
-                <span className="opacity-50 text-xs mt-[2px] select-none">
-                  [{time}]
-                </span>
-                <span className="select-none">{">"}</span>
+                <span className="term-ts select-none">[{time}]</span>
+                <span className="term-arrow select-none">›</span>
                 <span className={`${colorClass} break-words`}>{message}</span>
               </li>
             );
           })}
-          <li className="mt-2 text-green-400 animate-blink">_</li>
+          <li className="mt-2 term-cursor95">_</li>
         </ul>
       </div>
     </div>
