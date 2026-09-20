@@ -14,7 +14,7 @@ export default function PlayerRoster({
   players,
   me,
   myRole,
-  mySessionId,
+  myPid,
   phase,
   votingMap,
   auditHistory,
@@ -82,7 +82,7 @@ export default function PlayerRoster({
         <div className="staff-list95 flex-1 overflow-y-auto scroll95">
           <div className="grid grid-cols-1 gap-[5px]">
             {[...players].sort((a, b) => b.isActive - a.isActive).map((p) => {
-              const isMe = p.sessionId === mySessionId;
+              const isMe = p.pid === myPid;
               const isTargetable = iAmActive && p.isActive && !isMe;
 
               const showVoteBtn =
@@ -118,9 +118,9 @@ export default function PlayerRoster({
                   </div>
 
                   {myRole === ROLES.AUDITOR &&
-                    p.sessionId !== mySessionId &&
+                    p.pid !== myPid &&
                     (() => {
-                      const entry = auditHistory[p.sessionId];
+                      const entry = auditHistory[p.pid];
                       if (!entry) return null;
                       return (
                         <span
@@ -134,9 +134,9 @@ export default function PlayerRoster({
                     })()}
 
                   {myRole === ROLES.CONTROLLER &&
-                    p.sessionId !== mySessionId &&
+                    p.pid !== myPid &&
                     (() => {
-                      const entry = protectHistory[p.sessionId];
+                      const entry = protectHistory[p.pid];
                       if (!entry) return null;
                       return (
                         <span

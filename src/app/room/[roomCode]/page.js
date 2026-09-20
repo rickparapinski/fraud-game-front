@@ -52,14 +52,15 @@ export default function RoomPage() {
   // -- Derived --
   const me = useMemo(() => {
     return (
-      game.players.find((p) => p.sessionId === game.mySessionId) || {
+      game.players.find((p) => p.pid === game.myPid) || {
         id: game.socketId || "pending",
+        pid: game.myPid,
         name,
         isActive: true,
         role: game.myRole,
       }
     );
-  }, [game.players, name, game.myRole, game.mySessionId, game.socketId]);
+  }, [game.players, name, game.myRole, game.myPid, game.socketId]);
 
   const votingMap = useMemo(() => {
     const map = new Map();
@@ -108,7 +109,7 @@ export default function RoomPage() {
   const prevIdsRef = useRef(null);
   useEffect(() => {
     if (!game.players.length) return;
-    const ids = new Set(game.players.map((p) => p.sessionId || p.id));
+    const ids = new Set(game.players.map((p) => p.pid || p.id));
     if (prevIdsRef.current === null) {
       // first snapshot: announce yourself only, not the whole existing roster
       prevIdsRef.current = ids;
@@ -116,7 +117,7 @@ export default function RoomPage() {
       return;
     }
     for (const p of game.players) {
-      if (!prevIdsRef.current.has(p.sessionId || p.id)) {
+      if (!prevIdsRef.current.has(p.pid || p.id)) {
         addLine(`${p.name} punched in. (badge printed)`, "system");
       }
     }
@@ -322,7 +323,7 @@ export default function RoomPage() {
                           <div className="memo-partners">
                             <span className="memo-label">PARTNERS:</span>
                             {game.teammates.map((t, i) => {
-                              const alive = game.players.find((p) => p.id === t.id)?.isActive !== false;
+                              const alive = game.players.find((p) => p.pid === t.pid)?.isActive !== false;
                               return (
                                 <span key={t.id} className={alive ? "" : "line-through opacity-50"}>
                                   {t.name}{i < game.teammates.length - 1 ? ", " : ""}
@@ -418,7 +419,7 @@ export default function RoomPage() {
                 players={game.players}
                 me={me}
                 myRole={game.myRole}
-                mySessionId={game.mySessionId}
+                myPid={game.myPid}
                 phase={game.phase}
                 votingMap={votingMap}
                 auditHistory={game.auditHistory}
