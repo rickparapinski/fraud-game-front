@@ -56,7 +56,14 @@ export default function RoomPage() {
         id: game.socketId || "pending",
         pid: game.myPid,
         name,
-        isActive: true,
+        // This fallback only matters once the game has actually started (the
+        // action area it feeds is gated on phase !== "lobby"), meaning the
+        // real roster should already contain us — a lookup miss here is an
+        // anomaly, not the normal pre-join state. Default to inactive rather
+        // than active so we don't hand out action controls to an unverified
+        // identity; the real record (with the correct isActive) takes over
+        // as soon as the roster resolves.
+        isActive: false,
         role: game.myRole,
       }
     );
@@ -79,7 +86,7 @@ export default function RoomPage() {
       setMsLeft(0);
       return;
     }
-    const interval = setInterval(() => {
+    const tick = () => {
       const ms = game.deadline - (Date.now() + game.offsetMs);
       if (ms <= 0) {
         setTimeLeft("00:00");
@@ -90,7 +97,12 @@ export default function RoomPage() {
       const m = Math.floor(ms / 60000);
       const s = Math.floor((ms % 60000) / 1000);
       setTimeLeft(`${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`);
-    }, 1000);
+    };
+    // Compute the first frame synchronously — otherwise the display shows
+    // the previous phase's leftover value (or 00:00) for up to 1s until the
+    // first interval tick fires.
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [game.deadline, game.offsetMs]);
   const timerUrgent = msLeft > 0 && msLeft <= 10000;

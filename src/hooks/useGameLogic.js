@@ -33,13 +33,12 @@ export function useGameLogic(roomCode, name) {
   const [fraudTally, setFraudTally] = useState(null);
   const [fraudVotes, setFraudVotes] = useState(null);
   const [logs, setLogs] = useState([]);
-  const [hasVotedDay, setHasVotedDay] = useState(false);
   const [connected, setConnected] = useState(false);
   const [mySessionId, setMySessionId] = useState("");
   const [myPid, setMyPid] = useState("");
   const [dayVotingStatus, setDayVotingStatus] = useState([]);
 
-  const { socketEmit, actions } = useGameActions(roomCode, setError, setHasVotedDay);
+  const { socketEmit, actions } = useGameActions(roomCode, setError);
 
   // --- Connection lifecycle, join/resume negotiation, and event listeners ---
   useEffect(() => {
@@ -120,7 +119,6 @@ export function useGameLogic(roomCode, name) {
         setFraudTally(null);
         setFraudVotes(null);
         setDaySummary(null);
-        setHasVotedDay(false);
         setGameOver(null);
       },
       "your-role": ({ role, instructions, teammates }) => {
@@ -141,7 +139,6 @@ export function useGameLogic(roomCode, name) {
         setPhase(data.phase);
         if (data.phase !== "day") setDayVotingStatus([]);
         setDeadline(data.deadline || null);
-        if (data.phase === "day") setHasVotedDay(false);
         if (data.players) setPlayers(data.players);
         setFraudTally(null);
         setFraudVotes(null);
@@ -250,7 +247,6 @@ export function useGameLogic(roomCode, name) {
     gameOver,
     fraudTally,
     fraudVotes,
-    hasVotedDay,
     actions,
   };
 }
