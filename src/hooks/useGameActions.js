@@ -1,7 +1,7 @@
 "use client";
 import { getSocket } from "@/lib/socket";
 
-export function useGameActions(roomCode, setError, setHasVotedDay) {
+export function useGameActions(roomCode, setError) {
   const socketEmit = (event, data) =>
     new Promise((resolve, reject) => {
       getSocket()
@@ -25,10 +25,7 @@ export function useGameActions(roomCode, setError, setHasVotedDay) {
     beginNight: () => socketEmit("begin-night", { roomCode }),
     submitNightAction: (type, targetId) =>
       socketEmit("night-action", { roomCode, type, targetId }),
-    castDayVote: async (targetId) => {
-      await socketEmit("day-vote", { roomCode, targetId });
-      setHasVotedDay(true);
-    },
+    castDayVote: (targetId) => socketEmit("day-vote", { roomCode, targetId }),
     spawnBots: (count) => socketEmit("debug-spawn-bots", { roomCode, count }),
     despawnBots: () => socketEmit("debug-despawn-bots", { roomCode }),
     setDevRole: (role) => socketEmit("debug-set-host-role", { roomCode, role }),

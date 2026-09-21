@@ -120,12 +120,18 @@ function AccountantLedger({ onAct }) {
 
 // --- SUB-COMPONENT: Fraudster team vote board ---
 function FraudVoteBoard({ me, players, fraudVotes, teammates }) {
-  // Build full fraudster list from teammates (co-fraudsters) + self, then cross-ref isActive from public roster
-  const aliveFraudsters = [...(teammates || []).map((t) => ({ id: t.id, name: t.name })), { id: me.id, name: me.name }]
-    .filter((f) => {
-      const p = players.find((p) => p.id === f.id);
-      return p ? p.isActive : true;
-    });
+  // Build full fraudster list from teammates (co-fraudsters) + self, matched
+  // against the live roster by pid (stable across reconnects) so a teammate
+  // who reconnected doesn't get stuck on a stale cached socket id.
+  const aliveFraudsters = [
+    ...(teammates || []).map((t) => ({ pid: t.pid, name: t.name })),
+    { pid: me.pid, name: me.name },
+  ]
+    .map((f) => {
+      const p = players.find((pp) => pp.pid === f.pid);
+      return { pid: f.pid, id: p?.id || f.pid, name: p?.name || f.name, isActive: p ? p.isActive : true };
+    })
+    .filter((f) => f.isActive !== false);
 
   // Find the leading target (if any)
   const tally = {};
@@ -151,7 +157,7 @@ function FraudVoteBoard({ me, players, fraudVotes, teammates }) {
       <div className="space-y-[2px]">
         {aliveFraudsters.map((f) => {
           const vote = fraudVotes?.find((v) => v.voterId === f.id);
-          const isMe = f.id === me.id;
+          const isMe = f.pid === me.pid;
           const isLeading = vote && topTargetIds.includes(vote.targetId) && topCount > 1;
           return (
             <div

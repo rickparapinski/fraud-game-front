@@ -52,14 +52,22 @@ export default function RoomPage() {
   // -- Derived --
   const me = useMemo(() => {
     return (
-      game.players.find((p) => p.sessionId === game.mySessionId) || {
+      game.players.find((p) => p.pid === game.myPid) || {
         id: game.socketId || "pending",
+        pid: game.myPid,
         name,
-        isActive: true,
+        // This fallback only matters once the game has actually started (the
+        // action area it feeds is gated on phase !== "lobby"), meaning the
+        // real roster should already contain us — a lookup miss here is an
+        // anomaly, not the normal pre-join state. Default to inactive rather
+        // than active so we don't hand out action controls to an unverified
+        // identity; the real record (with the correct isActive) takes over
+        // as soon as the roster resolves.
+        isActive: false,
         role: game.myRole,
       }
     );
-  }, [game.players, name, game.myRole, game.mySessionId, game.socketId]);
+  }, [game.players, name, game.myRole, game.myPid, game.socketId]);
 
   const votingMap = useMemo(() => {
     const map = new Map();
@@ -78,7 +86,7 @@ export default function RoomPage() {
       setMsLeft(0);
       return;
     }
-    const interval = setInterval(() => {
+    const tick = () => {
       const ms = game.deadline - (Date.now() + game.offsetMs);
       if (ms <= 0) {
         setTimeLeft("00:00");
@@ -89,7 +97,12 @@ export default function RoomPage() {
       const m = Math.floor(ms / 60000);
       const s = Math.floor((ms % 60000) / 1000);
       setTimeLeft(`${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`);
-    }, 1000);
+    };
+    // Compute the first frame synchronously — otherwise the display shows
+    // the previous phase's leftover value (or 00:00) for up to 1s until the
+    // first interval tick fires.
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [game.deadline, game.offsetMs]);
   const timerUrgent = msLeft > 0 && msLeft <= 10000;
@@ -108,7 +121,7 @@ export default function RoomPage() {
   const prevIdsRef = useRef(null);
   useEffect(() => {
     if (!game.players.length) return;
-    const ids = new Set(game.players.map((p) => p.sessionId || p.id));
+    const ids = new Set(game.players.map((p) => p.pid || p.id));
     if (prevIdsRef.current === null) {
       // first snapshot: announce yourself only, not the whole existing roster
       prevIdsRef.current = ids;
@@ -116,7 +129,7 @@ export default function RoomPage() {
       return;
     }
     for (const p of game.players) {
-      if (!prevIdsRef.current.has(p.sessionId || p.id)) {
+      if (!prevIdsRef.current.has(p.pid || p.id)) {
         addLine(`${p.name} punched in. (badge printed)`, "system");
       }
     }
@@ -322,7 +335,7 @@ export default function RoomPage() {
                           <div className="memo-partners">
                             <span className="memo-label">PARTNERS:</span>
                             {game.teammates.map((t, i) => {
-                              const alive = game.players.find((p) => p.id === t.id)?.isActive !== false;
+                              const alive = game.players.find((p) => p.pid === t.pid)?.isActive !== false;
                               return (
                                 <span key={t.id} className={alive ? "" : "line-through opacity-50"}>
                                   {t.name}{i < game.teammates.length - 1 ? ", " : ""}
@@ -418,7 +431,7 @@ export default function RoomPage() {
                 players={game.players}
                 me={me}
                 myRole={game.myRole}
-                mySessionId={game.mySessionId}
+                myPid={game.myPid}
                 phase={game.phase}
                 votingMap={votingMap}
                 auditHistory={game.auditHistory}
